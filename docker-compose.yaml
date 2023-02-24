@@ -1,0 +1,10 @@
+version: "3"
+
+services:
+  auto-winds:
+    build: .
+    ports:
+      - 4070:80
+    volumes:
+      - /mnt/data/public/empire/auto-winds:/data
+      - ./config:/app/config

@@ -1,0 +1,196 @@
+[
+  {
+    "name": "April",
+    "use": false,
+    "replace": [
+      { "from": "sumaah", "to": "Suhmah" },
+      { "from": "jotun", "to": "Jotoon" },
+      { "from": "vallorn", "to": "Valorn" },
+      { "from": "druj", "to": "drooge" },
+      { "from": "feni", "to": "Fenni" },
+      { "from": "380YE", "to": "380 Year of the Empire" },
+      { "from": "381YE", "to": "381 Year of the Empire" },
+      { "from": "382YE", "to": "382 Year of the Empire" },
+      { "from": "383YE", "to": "383 Year of the Empire" },
+      { "from": "384YE", "to": "384 Year of the Empire" },
+      { "from": "385YE", "to": "385 Year of the Empire" }
+    ]
+  },
+  {
+    "name": "Arthur",
+    "use": true,
+    "replace": [
+      { "from": "sumaah", "to": "Suhmah" },
+      { "from": "jotun", "to": "Jotoon" },
+      { "from": "vallorn", "to": "Valorn" },
+      { "from": "druj", "to": "drooge" },
+      { "from": "feni", "to": "Fenni" },
+      { "from": "380YE", "to": "380 Year of the Empire" },
+      { "from": "381YE", "to": "381 Year of the Empire" },
+      { "from": "382YE", "to": "382 Year of the Empire" },
+      { "from": "383YE", "to": "383 Year of the Empire" },
+      { "from": "384YE", "to": "384 Year of the Empire" },
+      { "from": "385YE", "to": "385 Year of the Empire" }
+    ],
+    "max_words": 250
+  },
+  {
+    "name": "Booker",
+    "use": true,
+    "replace": [
+      { "from": "sumaah", "to": "Suhmah" },
+      { "from": "jotun", "to": "Jotoon" },
+      { "from": "vallorn", "to": "Valorn" },
+      { "from": "druj", "to": "drooge" },
+      { "from": "feni", "to": "Fenni" },
+      { "from": "380YE", "to": "380 Year of the Empire" },
+      { "from": "381YE", "to": "381 Year of the Empire" },
+      { "from": "382YE", "to": "382 Year of the Empire" },
+      { "from": "383YE", "to": "383 Year of the Empire" },
+      { "from": "384YE", "to": "384 Year of the Empire" },
+      { "from": "385YE", "to": "385 Year of the Empire" }
+    ]
+  },
+  {
+    "name": "Carlo",
+    "use": true,
+    "replace": [
+      { "from": "sumaah", "to": "Suhmah" },
+      { "from": "jotun", "to": "Jotoon" },
+      { "from": "vallorn", "to": "Valorn" },
+      { "from": "druj", "to": "drooge" },
+      { "from": "feni", "to": "Fenni" },
+      { "from": "380YE", "to": "380 Year of the Empire" },
+      { "from": "381YE", "to": "381 Year of the Empire" },
+      { "from": "382YE", "to": "382 Year of the Empire" },
+      { "from": "383YE", "to": "383 Year of the Empire" },
+      { "from": "384YE", "to": "384 Year of the Empire" },
+      { "from": "385YE", "to": "385 Year of the Empire" }
+    ],
+    "max_words": 250
+  },
+  {
+    "name": "Chuck",
+    "use": true,
+    "replace": [
+      { "from": "sumaah", "to": "Suhmah" },
+      { "from": "jotun", "to": "Jotoon" },
+      { "from": "vallorn", "to": "Valorn" },
+      { "from": "druj", "to": "drooge" },
+      { "from": "feni", "to": "Fenni" },
+      { "from": "380YE", "to": "380 Year of the Empire" },
+      { "from": "381YE", "to": "381 Year of the Empire" },
+      { "from": "382YE", "to": "382 Year of the Empire" },
+      { "from": "383YE", "to": "383 Year of the Empire" },
+      { "from": "384YE", "to": "384 Year of the Empire" },
+      { "from": "385YE", "to": "385 Year of the Empire" }
+    ],
+    "max_words": 250
+  },
+  {
+    "name": "Clark",
+    "use": true,
+    "replace": [
+      { "from": "sumaah", "to": "Suhmah" },
+      { "from": "jotun", "to": "Jotoon" },
+      { "from": "vallorn", "to": "Valorn" },
+      { "from": "druj", "to": "drooge" },
+      { "from": "feni", "to": "Fenni" },
+      { "from": "380YE", "to": "380 Year of the Empire" },
+      { "from": "381YE", "to": "381 Year of the Empire" },
+      { "from": "382YE", "to": "382 Year of the Empire" },
+      { "from": "383YE", "to": "383 Year of the Empire" },
+      { "from": "384YE", "to": "384 Year of the Empire" },
+      { "from": "385YE", "to": "385 Year of the Empire" }
+    ],
+    "max_words": 250
+  },
+  {
+    "name": "Fletcher",
+    "use": true,
+    "replace": [
+      { "from": "sumaah", "to": "Suhmah" },
+      { "from": "jotun", "to": "Jotoon" },
+      { "from": "vallorn", "to": "Valorn" },
+      { "from": "druj", "to": "drooge" },
+      { "from": "feni", "to": "Fenni" },
+      { "from": "380YE", "to": "380 Year of the Empire" },
+      { "from": "381YE", "to": "381 Year of the Empire" },
+      { "from": "382YE", "to": "382 Year of the Empire" },
+      { "from": "383YE", "to": "383 Year of the Empire" },
+      { "from": "384YE", "to": "384 Year of the Empire" },
+      { "from": "385YE", "to": "385 Year of the Empire" }
+    ],
+    "max_words": 250
+  },
+  {
+    "name": "Logan",
+    "use": true,
+    "replace": [
+      { "from": "sumaah", "to": "Suhmah" },
+      { "from": "jotun", "to": "Jotoon" },
+      { "from": "vallorn", "to": "Valorn" },
+      { "from": "druj", "to": "drooge" },
+      { "from": "feni", "to": "Fenni" },
+      { "from": "380YE", "to": "380 Year of the Empire" },
+      { "from": "381YE", "to": "381 Year of the Empire" },
+      { "from": "382YE", "to": "382 Year of the Empire" },
+      { "from": "383YE", "to": "383 Year of the Empire" },
+      { "from": "384YE", "to": "384 Year of the Empire" },
+      { "from": "385YE", "to": "385 Year of the Empire" }
+    ]
+  },
+  {
+    "name": "Madison",
+    "use": false,
+    "replace": [
+      { "from": "sumaah", "to": "Suhmah" },
+      { "from": "jotun", "to": "Jotoon" },
+      { "from": "vallorn", "to": "Valorn" },
+      { "from": "druj", "to": "drooge" },
+      { "from": "feni", "to": "Fenni" },
+      { "from": "380YE", "to": "380 Year of the Empire" },
+      { "from": "381YE", "to": "381 Year of the Empire" },
+      { "from": "382YE", "to": "382 Year of the Empire" },
+      { "from": "383YE", "to": "383 Year of the Empire" },
+      { "from": "384YE", "to": "384 Year of the Empire" },
+      { "from": "385YE", "to": "385 Year of the Empire" }
+    ]
+  },
+  {
+    "name": "Oscar",
+    "use": true,
+    "replace": [
+      { "from": "sumaah", "to": "Suhmah" },
+      { "from": "jotun", "to": "Jotoon" },
+      { "from": "vallorn", "to": "Valorn" },
+      { "from": "druj", "to": "drooge" },
+      { "from": "feni", "to": "Fenni" },
+      { "from": "380YE", "to": "380 Year of the Empire" },
+      { "from": "381YE", "to": "381 Year of the Empire" },
+      { "from": "382YE", "to": "382 Year of the Empire" },
+      { "from": "383YE", "to": "383 Year of the Empire" },
+      { "from": "384YE", "to": "384 Year of the Empire" },
+      { "from": "385YE", "to": "385 Year of the Empire" }
+    ],
+    "max_words": 250
+  },
+  {
+    "name": "Stella",
+    "use": true,
+    "replace": [
+      { "from": "sumaah", "to": "Suhmah" },
+      { "from": "jotun", "to": "Jotoon" },
+      { "from": "vallorn", "to": "Valorn" },
+      { "from": "druj", "to": "drooge" },
+      { "from": "feni", "to": "Fenni" },
+      { "from": "380YE", "to": "380 Year of the Empire" },
+      { "from": "381YE", "to": "381 Year of the Empire" },
+      { "from": "382YE", "to": "382 Year of the Empire" },
+      { "from": "383YE", "to": "383 Year of the Empire" },
+      { "from": "384YE", "to": "384 Year of the Empire" },
+      { "from": "385YE", "to": "385 Year of the Empire" }
+    ],
+    "max_words": 250
+  }
+]

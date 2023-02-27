@@ -17,6 +17,9 @@ COPY ./config/* /app/config/
 # copy in app source
 COPY ./src/*.py /app/src/
 
+# copy in web source
+COPY ./web /app/
+
 RUN mypy src --config-file /app/config/mypy.ini
 
 CMD python ./src/main.py

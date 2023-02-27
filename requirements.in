@@ -5,6 +5,4 @@ mypy
 pydub
 pydub-stubs
 python-dotenv
-tqdm
 types-beautifulsoup4
-types-tqdm

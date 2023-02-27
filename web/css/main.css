@@ -1,0 +1,188 @@
+@font-face {
+  font-family: "Open Dyslexic";
+  src: url("../fonts/opendyslexic/Regular.eot");
+  src: url("../fonts/opendyslexic/Regular.eot") format("embedded-opentype"),
+    url("../fonts/opendyslexic/Regular.woff2") format("woff2"),
+    url("../fonts/opendyslexic/Regular.woff") format("woff"),
+    url("../fonts/opendyslexic/Regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Open Dyslexic";
+  src: url("../fonts/opendyslexic/Italic.eot");
+  src: url("../fonts/opendyslexic/Italic.eot") format("embedded-opentype"),
+    url("../fonts/opendyslexic/Italic.woff2") format("woff2"),
+    url("../fonts/opendyslexic/Italic.woff") format("woff"),
+    url("../fonts/opendyslexic/Italic.ttf") format("truetype");
+  font-weight: normal;
+  font-style: italic;
+}
+@font-face {
+  font-family: "Open Dyslexic";
+  src: url("../fonts/opendyslexic/Bold.eot");
+  src: url("../fonts/opendyslexic/Bold.eot") format("embedded-opentype"),
+    url("../fonts/opendyslexic/Bold.woff2") format("woff2"),
+    url("../fonts/opendyslexic/Bold.woff") format("woff"),
+    url("../fonts/opendyslexic/Bold.ttf") format("truetype");
+  font-weight: bold;
+  font-style: normal;
+}
+@font-face {
+  font-family: "Open Dyslexic";
+  src: url("../fonts/opendyslexic/Bold-Italic.eot");
+  src: url("../fonts/opendyslexic/Bold-Italic.eot") format("embedded-opentype"),
+    url("../fonts/opendyslexic/Bold-Italic.woff2") format("woff2"),
+    url("../fonts/opendyslexic/Bold-Italic.woff") format("woff"),
+    url("../fonts/opendyslexic/Bold-Italic.ttf") format("truetype");
+  font-weight: bold;
+  font-style: italic;
+}
+
+body {
+  max-width: 1000px;
+  margin: auto;
+  font-size: larger;
+  color: #a0a0a0;
+  background-color: #222222;
+  padding: 50px 0 100px 0;
+  font-family: "Open Dyslexic", Arial, Helvetica, sans-serif;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  padding: 10px;
+  width: 100%;
+  height: 100%;
+  max-height: 80px;
+}
+
+button:not([disabled]) {
+  cursor: pointer;
+}
+
+a {
+  color: #3584e4;
+}
+
+p {
+  line-height: 1.5;
+}
+
+span:hover {
+  color: #3584e4;
+  cursor: pointer;
+}
+
+.audio-button {
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  height: 80px;
+  width: 80px;
+  margin: auto;
+  background: #333333;
+  border-radius: 50%;
+  transition: all 0.3s ease-in;
+  box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.1),
+    -10px -10px 10px rgba(0, 0, 0, 0.6);
+}
+.audio-button .fas {
+  display: grid;
+  line-height: 0;
+  place-items: center;
+  font-size: 4rem;
+  color: #f5f5f5;
+}
+.audio-button-active {
+  box-shadow: inset 10px 10px 10px rgba(0, 0, 0, 0.1),
+    inset -10px -10px 10px rgba(0, 0, 0, 0.6);
+}
+.audio-button-active .fas {
+  color: #3584e4;
+}
+
+.font-type-rows {
+  display: grid;
+  grid-template-columns: 0.2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  grid-column-gap: 0px;
+  grid-row-gap: 0px;
+}
+
+.font-size-rows {
+  display: grid;
+  grid-template-columns: 0.2fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  grid-column-gap: 0px;
+  grid-row-gap: 0px;
+}
+
+.arial {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.active_span {
+  color: #f5f5f5;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+}
+
+.global-settings {
+  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr;
+  grid-column-gap: 0px;
+  grid-row-gap: 0px;
+}
+
+.article_menu {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  grid-template-rows: 1fr;
+  grid-column-gap: 10px;
+  grid-row-gap: 0px;
+}
+
+.playback-speed-container {
+  margin-left: 50px;
+  margin-right: 50px;
+}
+
+.max-slider {
+  width: 100%;
+}
+
+.footer {
+  position: fixed;
+  bottom: 0;
+  margin: auto;
+  background: #333;
+  width: 100vw;
+  left: 0;
+  text-align: center;
+}
+
+@media screen and (max-width: 900px) {
+  body {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+@media screen and (max-width: 600px) {
+  .article_menu {
+    grid-template-columns: 1fr 1fr;
+    grid-column-gap: 10px;
+    grid-row-gap: 10px;
+  }
+
+  .playback-speed-container {
+    margin-left: 0;
+    margin-right: 0;
+  }
+}

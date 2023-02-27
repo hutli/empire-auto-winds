@@ -6,5 +6,5 @@ services:
     ports:
       - 4070:80
     volumes:
-      - /mnt/data/public/empire/auto-winds:/data
+      - /mnt/data/public/empire/auto-winds:/app/web
       - ./config:/app/config

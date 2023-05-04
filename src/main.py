@@ -1,8 +1,10 @@
+import asyncio
 import json
 import os
 import random
 import re
 import time
+import uuid
 from pathlib import Path
 
 import dotenv
@@ -22,10 +24,10 @@ ARTICLES_DIR = CONFIG_DIR / "articles"
 WEB_DIR = Path("/app/web")
 MANUSCRIPTS_JSON = WEB_DIR / "manuscripts.json"
 
-API_KEY = os.environ["URTTS_API_KEY"]
-USER_ID = os.environ["URTTS_USER_ID"]
-PARROT_USERNAME = os.environ["PARROT_USERNAME"]
-PARROT_PASSWORD = os.environ["PARROT_PASSWORD"]
+URTTS_API_KEY = os.environ["URTTS_API_KEY"]
+URTTS_USER_ID = os.environ["URTTS_USER_ID"]
+
+REFRESH_ARTICLES = os.getenv("REFRESH_ARTICLES", False)
 
 PRE_H1_SILENCE = 0
 POST_H1_SILENCE = 2
@@ -34,10 +36,8 @@ POST_H2_SILENCE = 2
 PRE_P_SILENCE = 0
 POST_P_SILENCE = 0.5
 
-TMP_WAV = WEB_DIR / "tmp.wav"
 
-
-def urtts(to_say: str, voice: str, verbose: bool = False) -> AudioSegment:
+async def urtts(to_say: str, voice: str, verbose: bool = False) -> AudioSegment:
     start = time.time()
     audio_r = None
     request_json = {"voice": voice, "content": [to_say]}
@@ -46,14 +46,15 @@ def urtts(to_say: str, voice: str, verbose: bool = False) -> AudioSegment:
             convert_r = None
             while not convert_r:
                 try:
-                    convert_r = httpx.post(
-                        "https://play.ht/api/v1/convert",
-                        headers={
-                            "X-User-ID": USER_ID,
-                            "Authorization": API_KEY,
-                        },
-                        json=request_json,
-                    )
+                    async with httpx.AsyncClient() as client:
+                        convert_r = await client.post(
+                            "https://play.ht/api/v1/convert",
+                            headers={
+                                "X-User-ID": URTTS_USER_ID,
+                                "Authorization": URTTS_API_KEY,
+                            },
+                            json=request_json,
+                        )
                 except httpx.ReadTimeout:
                     logger.warning(f"URTTS convert request timed out, retrying")
                     continue
@@ -63,57 +64,80 @@ def urtts(to_say: str, voice: str, verbose: bool = False) -> AudioSegment:
                         f"URTTS convert request failed, retrying in 10s: {request_json} -> {convert_r.status_code} - {convert_r.text}"
                     )
                     convert_r = None
-                    time.sleep(10)
+                    await asyncio.sleep(10)
 
             result_r = None
+            retries = 0
             while not result_r:
                 try:
-                    result_r = httpx.get(
-                        f"https://play.ht/api/v1/articleStatus?transcriptionId={convert_r.json()['transcriptionId']}&ultra=true",
-                        headers={
-                            "X-User-ID": USER_ID,
-                            "Authorization": API_KEY,
-                        },
-                    )
+                    async with httpx.AsyncClient() as client:
+                        result_r = await client.get(
+                            f"https://play.ht/api/v1/articleStatus?transcriptionId={convert_r.json()['transcriptionId']}&ultra=true",
+                            headers={
+                                "X-User-ID": URTTS_USER_ID,
+                                "Authorization": URTTS_API_KEY,
+                            },
+                        )
                 except httpx.ReadTimeout:
                     logger.warning(f"URTTS articleStatus request timed out, retrying")
                     continue
 
                 if "audioUrl" not in result_r.json():
                     logger.warning(
-                        f"URTTS articleStatus request failed, retrying in 10s: {result_r.status_code} - {result_r.text}"
+                        f"URTTS articleStatus request failed, retrying: {result_r.status_code} - {result_r.text}"
                     )
                     result_r = None
-                    time.sleep(10)
+                    retries += 1
+                    if retries > 3:
+                        convert_r = None
+                        audio_r = None
+                        break
+                    await asyncio.sleep(10)
+            if not result_r:
+                continue
 
             audioUrl = result_r.json()["audioUrl"]
 
-            assert len(audioUrl) == 1, request_json
+            if isinstance(audioUrl, list):
+                assert len(audioUrl) == 1, f"{request_json} -> {audioUrl}"
+                audioUrl = audioUrl[0]
 
-            MAX_RETRIES = 60
+            MAX_RETRIES = 300
             current_retries = 0
-            while (audio_r := httpx.get(audioUrl[0])).status_code == 403:
-                if current_retries < MAX_RETRIES:
-                    current_retries += 1
-                    time.sleep(1)
-                else:
-                    logger.warning(
-                        f'Max retries ({MAX_RETRIES}) exceeded while trying to get audioURL ({audioUrl[0]}) with request "{request_json}", starting over'
-                    )
-                    audio_r = None
-                    break
+
+            async with httpx.AsyncClient() as client:
+                while (audio_r := await client.get(audioUrl)).status_code == 403:
+                    if current_retries < MAX_RETRIES:
+                        current_retries += 1
+                        await asyncio.sleep(1)
+                    else:
+                        logger.warning(
+                            f'Max retries ({MAX_RETRIES}) exceeded while trying to get audioURL ({audioUrl}) with request "{request_json}", starting over'
+                        )
+                        audio_r = None
+                        break
 
         except httpx.ConnectTimeout:
             audio_r = None
-            logger.warning(f"Could not connect to URTTS, retrying")
+            logger.warning(f"Could not connect to URTTS, retrying in 10s")
+            await asyncio.sleep(10)
 
-    with open(TMP_WAV, "wb") as f:
+    TMP_AUDIO_FILE = Path(f"{uuid.uuid4()}.{audioUrl.rsplit('?')[0].rsplit('.', 1)[1]}")
+
+    with open(TMP_AUDIO_FILE, "wb") as f:
         f.write(audio_r.content)
 
     if verbose:
         logger.info(f"Got URTTS in {time.time() - start}s")
 
-    return AudioSegment.from_wav(TMP_WAV)
+    if TMP_AUDIO_FILE.suffix == ".wav":
+        res = AudioSegment.from_wav(TMP_AUDIO_FILE)
+    elif TMP_AUDIO_FILE.suffix == ".mp3":
+        res = AudioSegment.from_mp3(TMP_AUDIO_FILE)
+    else:
+        raise Exception(f'Unknown suffix "{TMP_AUDIO_FILE.suffix}"')
+    TMP_AUDIO_FILE.unlink()
+    return res
 
 
 def generate_voice_from_text(
@@ -128,11 +152,12 @@ def generate_voice_from_text(
 
     texts = [text]
     if len(text.split()) > max_words:
-        raise Exception(
+        logger.error(
             f"Paragraph longer than max_words ({len(text.split())} > {max_words}). Paragraph split into {len(texts)} sentences."
         )
+        return AudioSegment.silent(0)
 
-    return urtts(text, voice)
+    return asyncio.run(urtts(text, voice))
 
 
 def text_to_spans(text: str, root_dir: Path, audio_dir: Path) -> list:
@@ -145,14 +170,14 @@ def text_to_spans(text: str, root_dir: Path, audio_dir: Path) -> list:
         }
         for i, t in enumerate(
             re.split(
-                r"(?<=[…‥.!?])",
+                r"(?<=[…‥.!?\n])",
                 text.replace("–", "-")
                 .replace(" ", "")
                 .replace("...", "…")
                 .replace("..", "‥"),
             )
         )
-        if t.strip()
+        if len(t.strip()) > 2
     ]
 
 
@@ -161,14 +186,33 @@ def generate_manuscript(url: str, name: str, root_dir: Path) -> tuple[Path, dict
 
     page_categories = soup.find("div", {"id": "pageCategories"})
 
-    if not isinstance(page_categories, Tag):
+    if isinstance(page_categories, Tag):
+        category_lis = [l for l in page_categories.find_all("li") if isinstance(l, Tag)]
+    else:
         raise TypeError(f'Soup does not contain ID "pageCategories": {url}')
 
-    for child in page_categories.findChildren(recursive=True):
+    year = None
+    season = None
+    title = None
+    for child in category_lis:
         if "YE" in child.text:
             year, season = child.text.split("YE")
             year = year.strip() + "YE"
             season = season.strip()
+            title = (
+                f"{season}, {year}. {name}"
+                if "YE " not in name
+                else name.replace("YE ", "YE. ")
+            )
+            break
+        else:
+            year = "other"
+            season = child.text
+            title = name
+
+    if not year or not season:
+        year = "other"
+        season = "unknown"
 
     res_dir = root_dir / year / season / name
     res_dir.mkdir(parents=True, exist_ok=True)
@@ -203,9 +247,7 @@ def generate_manuscript(url: str, name: str, root_dir: Path) -> tuple[Path, dict
                 "section_type": "h1",
                 "spans": [
                     {
-                        "text": f"{season}, {year}. {name}"
-                        if "YE " not in name
-                        else name.replace("YE ", "YE. "),
+                        "text": title,
                         "audio_path": str(
                             (audio_dir / f"{0:04}" / f"{0:04}.mp3").absolute()
                         ),
@@ -239,7 +281,9 @@ def generate_manuscript(url: str, name: str, root_dir: Path) -> tuple[Path, dict
 def generate_audio(manuscript: dict) -> None:
     voice = random.choice([v for v in VOICES if v["use"]])
 
-    logger.info(f'Chose voice "{voice["name"]}" for "{manuscript["name"]}"')
+    logger.info(
+        f'Chose voice "{voice["name"]}" for "{manuscript["name"]} | {manuscript["season"]} | {manuscript["year"]}"'
+    )
 
     max_words = voice["max_words"] if "max_words" in voice else float("inf")
 
@@ -261,8 +305,13 @@ def generate_audio(manuscript: dict) -> None:
         voice["replace"],
         max_words,
     ).export(manuscript["outro"]["path"])
+    logger.info(
+        f'TTS audio segments generated for article "{manuscript["name"]}": {i}/{len(manuscript["sections"])-1}'
+    )
 
-    TMP_WAV.unlink(missing_ok=True)
+
+def article_url_to_name(url: str) -> str:
+    return url.rsplit("/", 1)[-1].replace("_", " ").strip()
 
 
 def main() -> None:
@@ -270,6 +319,7 @@ def main() -> None:
     if not MANUSCRIPTS_JSON.exists():
         with open(MANUSCRIPTS_JSON, "w") as f:
             f.write("{}")
+
     while True:
         article_urls = set()
         for article_file in ARTICLES_DIR.iterdir():
@@ -280,14 +330,14 @@ def main() -> None:
             manuscripts = json.load(f)
 
         for article_url in list(article_urls):
-            name = article_url.rsplit("/", 1)[-1].replace("_", " ").strip()
+            name = article_url_to_name(article_url)
             res_dir, manuscript = generate_manuscript(article_url, name, WEB_DIR)
 
             update_files = False
             if manuscript["name"] in manuscripts:
                 existing_manuscript = manuscripts[manuscript["name"]]
 
-                if manuscript != existing_manuscript:
+                if REFRESH_ARTICLES and manuscript != existing_manuscript:
                     logger.warning(
                         f'Article "{manuscript["name"]}" ({article_url}) changed, updating files'
                     )
@@ -302,6 +352,10 @@ def main() -> None:
                 generate_audio(manuscript)
 
                 manuscripts[manuscript["name"]] = manuscript
+
+                # Sort by key (article name)
+                manuscripts = dict(sorted(manuscripts.items()))
+
                 with open(MANUSCRIPTS_JSON, "w") as f:
                     json.dump(manuscripts, f, indent=4)
 

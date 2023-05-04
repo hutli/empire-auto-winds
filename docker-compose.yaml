@@ -3,6 +3,8 @@ version: "3"
 services:
   auto-winds:
     build: .
+    environment:
+      - REFRESH_ARTICLES=yes
     ports:
       - 4070:80
     volumes:

@@ -152,7 +152,7 @@ function do_it(manuscript) {
       if (audio_playing) {
         audio_playing.pause();
         audio_playing.currentTime = 0;
-        audios.forEach((a, i, _) => {
+        audios.forEach((a, i) => {
           document.getElementById(a[0]).classList.remove("active_span");
           if (a[0] == e.target.id) {
             my_play(audios.slice(i), new Audio(manuscript.outro.url));
@@ -177,6 +177,16 @@ function do_it(manuscript) {
   }, 1000);
 }
 
+function alphabeticallyRankName(a, b) {
+  if (a.name < b.name) {
+    return -1;
+  }
+  if (a.name > b.name) {
+    return 1;
+  }
+  return 0;
+}
+
 // MAIN
 let params = new URLSearchParams(document.location.search);
 let p_year = params.get("year");
@@ -186,61 +196,60 @@ let body = document.querySelector("#content");
 let buttons = document.createElement("div");
 buttons.classList.add("buttons");
 
-console.log(p_year);
-console.log(p_season);
-
 if (!p_year) {
-  console.log("No year!");
-
-  let years = [];
   fetch("manuscripts.json").then((manuscripts) => {
     manuscripts.json().then((manuscripts) => {
+      let years = [];
       for (const [_, manuscript] of Object.entries(manuscripts)) {
         if (!years.includes(manuscript.year)) {
           years.push(manuscript.year);
-          buttons.appendChild(
-            createLinkButton(`?year=${manuscript.year}`, manuscript.year)
-          );
         }
       }
+      years.sort();
+      years.forEach((year) =>
+        buttons.appendChild(createLinkButton(`?year=${year}`, year))
+      );
     });
   });
 } else if (!p_season) {
-  console.log("No season!");
   body.appendChild(createLinkButton("/", "Back"));
   body.appendChild(document.createElement("hr"));
 
-  let seasons = [];
   fetch("manuscripts.json").then((manuscripts) => {
     manuscripts.json().then((manuscripts) => {
+      let seasons = [];
       for (const [_, manuscript] of Object.entries(manuscripts)) {
         if (manuscript.year == p_year && !seasons.includes(manuscript.season)) {
           seasons.push(manuscript.season);
-          buttons.appendChild(
-            createLinkButton(
-              `?year=${p_year}&season=${manuscript.season}`,
-              manuscript.season
-            )
-          );
         }
       }
+      seasons.sort();
+      seasons.forEach((season) =>
+        buttons.appendChild(
+          createLinkButton(`?year=${p_year}&season=${season}`, season)
+        )
+      );
     });
   });
 } else if (p_year && p_season) {
-  console.log("Got year and season, woop!");
   body.appendChild(createLinkButton(`?year=${p_year}`, "Back"));
   body.appendChild(document.createElement("hr"));
 
   fetch("manuscripts.json").then((manuscripts) => {
     manuscripts.json().then((manuscripts) => {
-      for (const [name, manuscript] of Object.entries(manuscripts)) {
+      let found_manuscripts = [];
+      for (const [_, manuscript] of Object.entries(manuscripts)) {
         if (manuscript.year == p_year && manuscript.season == p_season) {
-          let btn = document.createElement("button");
-          btn.textContent = name;
-          btn.onclick = () => do_it(manuscript);
-          buttons.appendChild(btn);
+          found_manuscripts.push(manuscript);
         }
       }
+      found_manuscripts = found_manuscripts.sort(alphabeticallyRankName);
+      found_manuscripts.forEach((manuscript) => {
+        let btn = document.createElement("button");
+        btn.textContent = manuscript.name;
+        btn.onclick = () => do_it(manuscript);
+        buttons.appendChild(btn);
+      });
     });
   });
 }

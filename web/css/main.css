@@ -40,12 +40,16 @@
 }
 
 body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  padding: 0;
   max-width: 1000px;
   margin: auto;
   font-size: larger;
   color: #a0a0a0;
   background-color: #222222;
-  padding: 50px 0 100px 0;
   font-family: "Open Dyslexic", Arial, Helvetica, sans-serif;
 }
 
@@ -54,8 +58,6 @@ button {
   font-size: inherit;
   padding: 10px;
   width: 100%;
-  height: 100%;
-  max-height: 80px;
 }
 
 button:not([disabled]) {
@@ -63,6 +65,7 @@ button:not([disabled]) {
 }
 
 a {
+  word-wrap: break-word;
   color: #3584e4;
 }
 
@@ -70,7 +73,8 @@ p {
   line-height: 1.5;
 }
 
-span:hover {
+span:hover,
+li:hover {
   color: #3584e4;
   cursor: pointer;
 }
@@ -142,11 +146,24 @@ span:hover {
 }
 
 .article_menu {
+  width: 100%;
+  max-width: 1000px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid white;
   display: grid;
+  background-color: #222222;
   grid-template-columns: auto 1fr auto auto;
   grid-template-rows: 1fr;
   grid-column-gap: 10px;
   grid-row-gap: 0px;
+}
+
+.article_content {
+  overflow-y: scroll;
+}
+
+#content {
+  display: contents;
 }
 
 .playback-speed-container {
@@ -160,11 +177,9 @@ span:hover {
 
 .footer {
   position: fixed;
-  bottom: 0;
-  margin: auto;
+  bottom: 20px;
   background: #333;
-  width: 100vw;
-  left: 0;
+  right: 20px;
   text-align: center;
 }
 

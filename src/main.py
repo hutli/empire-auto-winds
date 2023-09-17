@@ -1,31 +1,37 @@
 import asyncio
+import io
 import json
 import os
 import random
-import re
 import time
 import uuid
 from pathlib import Path
 
 import dotenv
 import httpx
+import regex as re
 from bs4 import BeautifulSoup, Tag
 from loguru import logger
 from pydub import AudioSegment
+from tqdm import tqdm
 
 CONFIG_DIR = Path("config")
+CREDS_JSON = CONFIG_DIR / ".creds.json"
 
 dotenv.load_dotenv(CONFIG_DIR / ".env")
+CREDS = json.load(open(CREDS_JSON))
 
 with open(CONFIG_DIR / "voices.json") as f:
     VOICES = json.load(f)
 
+with open(CONFIG_DIR / "global-replace.json") as f:
+    GLOBAL_REPLACE = json.load(f)
+
 ARTICLES_DIR = CONFIG_DIR / "articles"
 WEB_DIR = Path("/app/web")
 MANUSCRIPTS_JSON = WEB_DIR / "manuscripts.json"
+AUDIO_DIR_NAME = "audio"
 
-URTTS_API_KEY = os.environ["URTTS_API_KEY"]
-URTTS_USER_ID = os.environ["URTTS_USER_ID"]
 
 REFRESH_ARTICLES = os.getenv("REFRESH_ARTICLES", False)
 
@@ -37,107 +43,108 @@ PRE_P_SILENCE = 0
 POST_P_SILENCE = 0.5
 
 
-async def urtts(to_say: str, voice: str, verbose: bool = False) -> AudioSegment:
-    start = time.time()
+def _update_headers(creds: dict) -> tuple[dict, dict]:
+    return creds, {
+        "X-User-ID": creds["user_id"],
+        "Authorization": f'Bearer {creds["api_key"]}',
+        "accept": "application/json",
+        "content-type": "application/json",
+    }
+
+
+def update_headers(current_failed: bool = False) -> tuple[dict, dict]:
+    global CREDS
+
+    if current_failed and (c := next(c for c in CREDS if c == CURRENT_CREDS)):
+        c["use"] = False
+        json.dump(CREDS, open(CREDS_JSON, "w"), indent=4)
+
+    for c in CREDS:
+        if c["use"]:
+            logger.info(f'New creds found ({c["email"]})')
+            return _update_headers(c)
+
+    logger.error("No more useful creds, please enter new")
+    CREDS.append(
+        {
+            "email": input("Email: "),
+            "user_id": input("User ID: "),
+            "api_key": input("API Key: "),
+            "use": True,
+        }
+    )
+    json.dump(CREDS, open(CREDS_JSON, "w"), indent=4)
+    return _update_headers(CREDS[-1])
+
+
+CURRENT_CREDS, HEADERS = update_headers()
+
+
+async def urtts_v2(text: str, voice_id: str, quality: str = "premium") -> AudioSegment:
+    global CURRENT_CREDS, HEADERS
+
     audio_r = None
-    request_json = {"voice": voice, "content": [to_say]}
     while not audio_r:
         try:
-            convert_r = None
-            while not convert_r:
-                try:
-                    async with httpx.AsyncClient() as client:
-                        convert_r = await client.post(
-                            "https://play.ht/api/v1/convert",
-                            headers={
-                                "X-User-ID": URTTS_USER_ID,
-                                "Authorization": URTTS_API_KEY,
-                            },
-                            json=request_json,
-                        )
-                except httpx.ReadTimeout:
-                    logger.warning(f"URTTS convert request timed out, retrying")
-                    continue
-
-                if str(convert_r.status_code)[0] != "2":
-                    logger.warning(
-                        f"URTTS convert request failed, retrying in 10s: {request_json} -> {convert_r.status_code} - {convert_r.text}"
-                    )
-                    convert_r = None
-                    await asyncio.sleep(10)
-
-            result_r = None
-            retries = 0
-            while not result_r:
-                try:
-                    async with httpx.AsyncClient() as client:
-                        result_r = await client.get(
-                            f"https://play.ht/api/v1/articleStatus?transcriptionId={convert_r.json()['transcriptionId']}&ultra=true",
-                            headers={
-                                "X-User-ID": URTTS_USER_ID,
-                                "Authorization": URTTS_API_KEY,
-                            },
-                        )
-                except httpx.ReadTimeout:
-                    logger.warning(f"URTTS articleStatus request timed out, retrying")
-                    continue
-
-                if "audioUrl" not in result_r.json():
-                    logger.warning(
-                        f"URTTS articleStatus request failed, retrying: {result_r.status_code} - {result_r.text}"
-                    )
-                    result_r = None
-                    retries += 1
-                    if retries > 3:
-                        convert_r = None
-                        audio_r = None
-                        break
-                    await asyncio.sleep(10)
-            if not result_r:
-                continue
-
-            audioUrl = result_r.json()["audioUrl"]
-
-            if isinstance(audioUrl, list):
-                assert len(audioUrl) == 1, f"{request_json} -> {audioUrl}"
-                audioUrl = audioUrl[0]
-
-            MAX_RETRIES = 300
-            current_retries = 0
-
             async with httpx.AsyncClient() as client:
-                while (audio_r := await client.get(audioUrl)).status_code == 403:
-                    if current_retries < MAX_RETRIES:
-                        current_retries += 1
-                        await asyncio.sleep(1)
-                    else:
+                tts_json = {
+                    "text": text,
+                    "voice": voice_id,
+                    "quality": quality,
+                }
+                while not (
+                    r := await client.post(
+                        "https://play.ht/api/v2/tts",
+                        headers=HEADERS,
+                        timeout=300,
+                        json=tts_json,
+                    )
+                ).is_success:
+                    if r.status_code in [401, 403]:
                         logger.warning(
-                            f'Max retries ({MAX_RETRIES}) exceeded while trying to get audioURL ({audioUrl}) with request "{request_json}", starting over'
+                            f"Credentials failed ({CURRENT_CREDS['email']}) moving on"
                         )
-                        audio_r = None
+                        CURRENT_CREDS, HEADERS = update_headers(current_failed=True)
+                    else:
+                        logger.warning(f"TTS request not successful {tts_json}: {r}")
+                        await asyncio.sleep(10)
+
+                gen_id = r.json()["id"]
+                fail = False
+                while True:
+                    r = await client.get(
+                        f"https://play.ht/api/v2/tts/{gen_id}",
+                        headers=HEADERS,
+                        timeout=300,
+                    )
+                    if not r.is_success:
+                        logger.error(f"TTS status request error, starting over: {r}")
+                        fail = True
+                        break
+                    elif r.json()["output"]:
                         break
 
-        except httpx.ConnectTimeout:
-            audio_r = None
-            logger.warning(f"Could not connect to URTTS, retrying in 10s")
-            await asyncio.sleep(10)
+                    await asyncio.sleep(2)
+                if fail:
+                    continue
 
-    TMP_AUDIO_FILE = Path(f"{uuid.uuid4()}.{audioUrl.rsplit('?')[0].rsplit('.', 1)[1]}")
+                gen_url = r.json()["output"]["url"]
+                audio_r = await client.get(
+                    gen_url,
+                    timeout=300,
+                )
+                if not audio_r.is_success:
+                    logger.warning(
+                        f"Audio download failed, retrying: {audio_r} | {audio_r.text}"
+                    )
+                    audio_r = None
 
-    with open(TMP_AUDIO_FILE, "wb") as f:
-        f.write(audio_r.content)
+        except httpx.ReadTimeout:
+            logger.warning(f"One URTTS request timed out, retrying")
+        except httpx.RemoteProtocolError:
+            logger.warning(f"Server disconnected during one URTTS request, retrying")
 
-    if verbose:
-        logger.info(f"Got URTTS in {time.time() - start}s")
-
-    if TMP_AUDIO_FILE.suffix == ".wav":
-        res = AudioSegment.from_wav(TMP_AUDIO_FILE)
-    elif TMP_AUDIO_FILE.suffix == ".mp3":
-        res = AudioSegment.from_mp3(TMP_AUDIO_FILE)
-    else:
-        raise Exception(f'Unknown suffix "{TMP_AUDIO_FILE.suffix}"')
-    TMP_AUDIO_FILE.unlink()
-    return res
+    return AudioSegment.from_mp3(io.BytesIO(audio_r.content))
 
 
 def generate_voice_from_text(
@@ -157,46 +164,66 @@ def generate_voice_from_text(
         )
         return AudioSegment.silent(0)
 
-    return asyncio.run(urtts(text, voice))
+    return asyncio.run(urtts_v2(text, voice))
 
 
-def text_to_spans(text: str, root_dir: Path, audio_dir: Path) -> list:
+def text_to_spans(text: str | list[str], root_dir: Path, audio_dir: Path) -> list:
     audio_dir.mkdir(parents=True, exist_ok=True)
     return [
         {
-            "text": t.strip().replace("…", "...").replace("‥", ".."),
+            "text": t.replace("…", "...")
+            .replace("‥", "..")
+            .replace(" ", "")
+            .replace("–", "-")
+            .strip(),
             "audio_path": str((audio_dir / f"{i:04}.mp3").absolute()),
             "audio_url": str((audio_dir / f"{i:04}.mp3").relative_to(root_dir)),
         }
-        for i, t in enumerate(
-            re.split(
-                r"(?<=[…‥.!?\n])",
-                text.replace("–", "-")
-                .replace(" ", "")
-                .replace("...", "…")
-                .replace("..", "‥"),
+        for i, t in (
+            enumerate(
+                re.split(
+                    r"(?<=[…‥.!?\n])",
+                    text.replace("...", "…").replace("..", "‥"),
+                )
+                if isinstance(text, str)
+                else text
             )
         )
         if len(t.strip()) > 2
     ]
 
 
-def generate_manuscript(url: str, name: str, root_dir: Path) -> tuple[Path, dict]:
-    soup = BeautifulSoup(httpx.get(url).text, "html.parser")
+def generate_manuscript(
+    url: str, name: str, root_dir: Path, file_name: str
+) -> tuple[Path, Path, dict]:
+    while True:
+        try:
+            soup = BeautifulSoup(
+                httpx.get(url, verify=False, timeout=60).text, "html.parser"
+            )
+            break
+        except httpx.ReadTimeout:
+            logger.error(f'Could not get manuscript "{url}" retrying in 10s')
+            time.sleep(10)
 
     page_categories = soup.find("div", {"id": "pageCategories"})
 
     if isinstance(page_categories, Tag):
-        category_lis = [l for l in page_categories.find_all("li") if isinstance(l, Tag)]
+        category_lis = [
+            l.text for l in page_categories.find_all("li") if isinstance(l, Tag)
+        ]
     else:
-        raise TypeError(f'Soup does not contain ID "pageCategories": {url}')
+        logger.warning(
+            f'"{url}" does not contain ID "pageCategories", using file stem ("{file_name}")'
+        )
+        category_lis = [file_name.replace("_", " ")]
 
     year = None
     season = None
     title = None
-    for child in category_lis:
-        if "YE" in child.text:
-            year, season = child.text.split("YE")
+    for category in category_lis:
+        if "YE" in category:
+            year, season = category.split("YE")
             year = year.strip() + "YE"
             season = season.strip()
             title = (
@@ -207,7 +234,7 @@ def generate_manuscript(url: str, name: str, root_dir: Path) -> tuple[Path, dict
             break
         else:
             year = "other"
-            season = child.text
+            season = category
             title = name
 
     if not year or not season:
@@ -217,7 +244,7 @@ def generate_manuscript(url: str, name: str, root_dir: Path) -> tuple[Path, dict
     res_dir = root_dir / year / season / name
     res_dir.mkdir(parents=True, exist_ok=True)
 
-    audio_dir = res_dir / "audio"
+    audio_dir = res_dir / AUDIO_DIR_NAME
     audio_dir.mkdir(parents=True, exist_ok=True)
 
     content = soup.find("div", {"id": "mw-content-text"})
@@ -233,7 +260,7 @@ def generate_manuscript(url: str, name: str, root_dir: Path) -> tuple[Path, dict
         child.decompose()
     for child in content.find_all("sup"):
         child.decompose()
-    for child in content.find_all("ul"):
+    for child in content.find_all("table"):
         child.decompose()
 
     (audio_dir / f"{0:04}").mkdir(parents=True, exist_ok=True)
@@ -263,7 +290,11 @@ def generate_manuscript(url: str, name: str, root_dir: Path) -> tuple[Path, dict
                 {
                     "section_type": child.name,
                     "spans": text_to_spans(
-                        child.text, root_dir, audio_dir / f"{i+1:04}"
+                        child.text
+                        if child.name != "ul"
+                        else [c.text for c in child.findChildren(recursive=False)],
+                        root_dir,
+                        audio_dir / f"{i+1:04}",
                     ),
                 }
                 for i, child in enumerate(content.findChildren(recursive=False))
@@ -275,10 +306,15 @@ def generate_manuscript(url: str, name: str, root_dir: Path) -> tuple[Path, dict
         },
     }
 
-    return res_dir, manuscript
+    return res_dir, audio_dir, manuscript
 
 
-def generate_audio(manuscript: dict) -> None:
+def generate_audio(
+    manuscript: dict,
+    manuscript_i: int,
+    manuscript_total: int,
+    task: str,
+) -> None:
     voice = random.choice([v for v in VOICES if v["use"]])
 
     logger.info(
@@ -288,21 +324,21 @@ def generate_audio(manuscript: dict) -> None:
     max_words = voice["max_words"] if "max_words" in voice else float("inf")
 
     for i, section in enumerate(manuscript["sections"]):
-        logger.info(
-            f'Generating TTS audio segments for article "{manuscript["name"]}": {i}/{len(manuscript["sections"])-1}'
-        )
-        for span in section["spans"]:
+        for span in tqdm(
+            section["spans"],
+            desc=f'{task} {manuscript_i+1}/{manuscript_total} "{manuscript["name"]}": {i}/{len(manuscript["sections"])-1}',
+        ):
             generate_voice_from_text(
                 span["text"],
-                voice["name"],
-                voice["replace"],
+                voice["id"],
+                GLOBAL_REPLACE + voice["replace"],
                 max_words,
             ).export(span["audio_path"])
 
     generate_voice_from_text(
         f'This article was read aloud by the artificial voice, "{voice["name"]}". All content of this recording is the original work of Profound Decisions and can be found on the Empire wikipedia. Thank you for listening.',
-        voice["name"],
-        voice["replace"],
+        voice["id"],
+        GLOBAL_REPLACE + voice["replace"],
         max_words,
     ).export(manuscript["outro"]["path"])
     logger.info(
@@ -321,35 +357,65 @@ def main() -> None:
             f.write("{}")
 
     while True:
-        article_urls = set()
+        article_urls: set[tuple[str, str]] = set()
         for article_file in ARTICLES_DIR.iterdir():
             with open(article_file) as f:
-                article_urls.update(json.load(f))
+                article_urls.update((article_file.stem, url) for url in json.load(f))
 
         with open(MANUSCRIPTS_JSON) as f:
             manuscripts = json.load(f)
 
-        for article_url in list(article_urls):
+        missing_manuscripts = []
+        updated_manuscripts = []
+        for file_name, article_url in list(article_urls):
             name = article_url_to_name(article_url)
-            res_dir, manuscript = generate_manuscript(article_url, name, WEB_DIR)
-
-            update_files = False
-            if manuscript["name"] in manuscripts:
-                existing_manuscript = manuscripts[manuscript["name"]]
-
-                if REFRESH_ARTICLES and manuscript != existing_manuscript:
-                    logger.warning(
-                        f'Article "{manuscript["name"]}" ({article_url}) changed, updating files'
-                    )
-                    update_files = True
-            else:
-                logger.warning(
-                    f'Article "{manuscript["name"]}" ({article_url}) not yet generated, creating files'
+            try:
+                res_dir, audio_dir, manuscript = generate_manuscript(
+                    article_url, name, WEB_DIR, file_name
                 )
-                update_files = True
 
-            if update_files:
-                generate_audio(manuscript)
+                if manuscript["name"] in manuscripts:
+                    existing_manuscript = manuscripts[manuscript["name"]]
+
+                    if len(manuscript["sections"]) + 1 > len(list(audio_dir.iterdir())):
+                        logger.warning(
+                            f'Article "{manuscript["name"]}" ({article_url}) has fewer generated files ({len(list(audio_dir.iterdir()))}) than needed ({len(manuscript["sections"]) + 1}), regenerating files'
+                        )
+                        updated_manuscripts.append(manuscript)
+                    if REFRESH_ARTICLES and manuscript != existing_manuscript:
+                        logger.info(
+                            f'Article "{manuscript["name"]}" ({article_url}) changed, adding to updated manuscripts'
+                        )
+                        updated_manuscripts.append(manuscript)
+                else:
+                    logger.info(
+                        f'Article "{manuscript["name"]}" ({article_url}) not yet generated, added to new manuscripts'
+                    )
+                    missing_manuscripts.append(manuscript)
+            except httpx.ConnectError as e:
+                logger.warning(f'Could not GET article "{article_url}": {e}')
+
+        if missing_manuscripts:
+            logger.info(f"Generating {len(missing_manuscripts)} missing manuscripts")
+            for i, manuscript in enumerate(missing_manuscripts):
+                generate_audio(
+                    manuscript, i, len(missing_manuscripts), "Generating manuscripts"
+                )
+
+                manuscripts[manuscript["name"]] = manuscript
+
+                # Sort by key (article name)
+                manuscripts = dict(sorted(manuscripts.items()))
+
+                with open(MANUSCRIPTS_JSON, "w") as f:
+                    json.dump(manuscripts, f, indent=4)
+
+        if updated_manuscripts:
+            logger.info(f"Generating {len(updated_manuscripts)} updated manuscripts")
+            for i, manuscript in enumerate(updated_manuscripts):
+                generate_audio(
+                    manuscript, i, len(updated_manuscripts), "Updating manuscripts"
+                )
 
                 manuscripts[manuscript["name"]] = manuscript
 

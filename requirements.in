@@ -5,4 +5,8 @@ mypy
 pydub
 pydub-stubs
 python-dotenv
+regex
+tqdm
+tqdm-stubs
 types-beautifulsoup4
+types-regex

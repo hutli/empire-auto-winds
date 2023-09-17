@@ -1,0 +1,19 @@
+[
+  { "from": "sumaah", "to": "Suhmah" },
+  { "from": "jotun", "to": "Jotoon" },
+  { "from": "vallorn", "to": "Valorn" },
+  { "from": "druj", "to": "Drooge" },
+  { "from": "feni", "to": "Fenni" },
+  { "from": "in-character", "to": "incharacter" },
+  { "from": "temeschwar", "to": "Temmeschwar" },
+  { "from": "sermersuaq", "to": "semmersuak" },
+  { "from": "thule", "to": "thool" },
+  { "from": "egregore", "to": "egrigore" },
+  { "from": "(?<=\\d{3})YE", "to": " Year of the Empire" },
+  { "from": "(?<=^|\\s|\\n)wiki(?=[[:punct:]]|$|\\n|\\s)", "to": "wikipedia" },
+  {
+    "from": "(?<=^|\\s|\\n)OOC(?=[[:punct:]]|$|\\n|\\s)",
+    "to": "out of character"
+  },
+  { "from": "yegarra", "to": "yehgarra" }
+]

@@ -1,10 +1,18 @@
 let audio_playing = null;
 let is_playing = false;
 let playback_rate = 1.0;
+let start_delay = 0;
 
 async function my_play(audios, outro) {
   if (audios.length > 0) {
-    document.getElementById(audios[0][0]).classList.add("active_span");
+    let elem = document.getElementById(audios[0][0]);
+    elem.classList.add("active_span");
+    elem.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "center",
+    });
+
     audios[0][1].addEventListener("ended", () => {
       document.getElementById(audios[0][0]).classList.remove("active_span");
       my_play(audios.slice(1), outro);
@@ -74,6 +82,8 @@ function do_it(manuscript) {
   body.innerHTML = "";
   let buttons = document.createElement("div");
   buttons.classList.add("article_menu");
+  let article_content = document.createElement("div");
+  article_content.classList.add("article_content");
 
   buttons.appendChild(
     createRoundLinkButton(`?year=${p_year}&season=${p_season}`, "&#x21E6")
@@ -126,14 +136,14 @@ function do_it(manuscript) {
   buttons.appendChild(resume_btn);
   buttons.appendChild(pause_btn);
 
-  body.appendChild(buttons);
-  body.appendChild(document.createElement("hr"));
-
   let audios = [];
   for (const [i, section] of manuscript.sections.entries()) {
     let elem = document.createElement(section.section_type);
     for (let [ii, span] of section.spans.entries()) {
-      let span_elem = document.createElement("span");
+      let span_elem = document.createElement(
+        section.section_type != "ul" ? "span" : "li"
+      );
+
       let span_id = `${String(i).padStart(4, "0")}_${String(ii).padStart(
         4,
         "0"
@@ -145,8 +155,19 @@ function do_it(manuscript) {
       audios.push([span_id, new Audio(span.audio_url)]);
     }
     elem.innerHTML = elem.innerHTML.replaceAll("</span><", "</span> <");
-    body.appendChild(elem);
+    article_content.appendChild(elem);
   }
+
+  article_content.appendChild(document.createElement("hr"));
+  let a = document.createElement("a");
+  a.href = manuscript.url;
+  a.target = "_blank";
+  a.innerText = manuscript.url;
+  article_content.appendChild(a);
+
+  body.appendChild(buttons);
+  body.appendChild(article_content);
+
   audios.forEach(([span_id, _]) => {
     document.getElementById(span_id).onclick = (e) => {
       if (audio_playing) {
@@ -162,19 +183,12 @@ function do_it(manuscript) {
     };
   });
 
-  body.appendChild(document.createElement("hr"));
-  let a = document.createElement("a");
-  a.href = manuscript.url;
-  a.target = "_blank";
-  a.innerText = manuscript.url;
-  body.appendChild(a);
-
   setTimeout(() => {
     resume_btn.classList.add("audio-button-active");
     pause_btn.classList.remove("audio-button-active");
     is_playing = true;
     my_play(audios, new Audio(manuscript.outro.url));
-  }, 1000);
+  }, start_delay);
 }
 
 function alphabeticallyRankName(a, b) {
@@ -191,6 +205,7 @@ function alphabeticallyRankName(a, b) {
 let params = new URLSearchParams(document.location.search);
 let p_year = params.get("year");
 let p_season = params.get("season");
+let p_name = params.get("name");
 
 let body = document.querySelector("#content");
 let buttons = document.createElement("div");
@@ -231,7 +246,7 @@ if (!p_year) {
       );
     });
   });
-} else if (p_year && p_season) {
+} else if (!p_name) {
   body.appendChild(createLinkButton(`?year=${p_year}`, "Back"));
   body.appendChild(document.createElement("hr"));
 
@@ -244,14 +259,34 @@ if (!p_year) {
         }
       }
       found_manuscripts = found_manuscripts.sort(alphabeticallyRankName);
-      found_manuscripts.forEach((manuscript) => {
-        let btn = document.createElement("button");
-        btn.textContent = manuscript.name;
-        btn.onclick = () => do_it(manuscript);
-        buttons.appendChild(btn);
-      });
+      found_manuscripts.forEach((manuscript) =>
+        buttons.appendChild(
+          createLinkButton(
+            `?year=${p_year}&season=${p_season}&name=${manuscript.name}`,
+            manuscript.name
+          )
+        )
+      );
+    });
+  });
+} else if (p_year && p_season && p_name) {
+  body.appendChild(
+    createLinkButton(`?year=${p_year}&season=${p_season}`, "Back")
+  );
+  body.appendChild(document.createElement("hr"));
+
+  fetch("manuscripts.json").then((manuscripts) => {
+    manuscripts.json().then((manuscripts) => {
+      for (const [_, manuscript] of Object.entries(manuscripts)) {
+        if (
+          manuscript.year == p_year &&
+          manuscript.season == p_season &&
+          p_name == manuscript.name
+        ) {
+          do_it(manuscript);
+        }
+      }
     });
   });
 }
-
 body.appendChild(buttons);

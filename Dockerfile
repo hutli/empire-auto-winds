@@ -3,7 +3,7 @@ WORKDIR /app/
 
 # install binaries - ffmpeg (or avconv) needed by pydub (to be fast)
 RUN apt-get update
-RUN apt-get install ffmpeg -y
+RUN apt-get install ffmpeg gcc -y
 
 # install dependencies
 COPY ./requirements.txt /tmp/

@@ -20,11 +20,16 @@ async function my_play(audios, outro) {
     audio_playing = audios[0][1];
   } else {
     audio_playing = outro;
+    audio_playing.addEventListener("ended", () => {
+      pausePlayback();
+      audio_playing = null;
+    });
   }
 
   audio_playing.playbackRate = playback_rate;
-  audio_playing.play();
-  if (!is_playing) {
+  if (is_playing) {
+    audio_playing.play();
+  } else {
     audio_playing.pause();
   }
 }
@@ -77,64 +82,38 @@ function createRoundLinkButton(href, innerHTML) {
   return a;
 }
 
-function do_it(manuscript) {
-  let body = document.querySelector("#content");
-  body.innerHTML = "";
-  let buttons = document.createElement("div");
-  buttons.classList.add("article_menu");
-  let article_content = document.createElement("div");
-  article_content.classList.add("article_content");
+function changePlaybackSpeed() {
+  if (audio_playing) {
+    slider = document.querySelector("#playback-speed-slider");
+    playback_rate = slider.value / 100;
+    audio_playing.playbackRate = playback_rate;
+  }
+}
 
-  buttons.appendChild(
-    createRoundLinkButton(`?year=${p_year}&season=${p_season}`, "&#x21E6")
-  );
+function resumePlayback() {
+  if (audio_playing) {
+    is_playing = true;
+    document.querySelector("#resume-btn").classList.add("audio-button-active");
+    document
+      .querySelector("#pause-btn")
+      .classList.remove("audio-button-active");
+    audio_playing.play();
+  }
+}
 
-  let speed_slider_container = document.createElement("fieldset");
-  speed_slider_container.classList.add("playback-speed-container");
-  let speed_slider_container_legend = document.createElement("legend");
-  speed_slider_container_legend.innerText = "Playback speed";
-  speed_slider_container.appendChild(speed_slider_container_legend);
-  let speed_slider = document.createElement("input");
-  speed_slider.type = "range";
-  speed_slider.min = "1";
-  speed_slider.max = "200";
-  speed_slider.value = "100";
-  speed_slider.classList.add("max-slider");
-  speed_slider.onchange = () => {
-    if (audio_playing) {
-      playback_rate = speed_slider.value / 100;
-      audio_playing.playbackRate = playback_rate;
-    }
-  };
-  speed_slider_container.appendChild(speed_slider);
-  buttons.appendChild(speed_slider_container);
+function pausePlayback() {
+  if (audio_playing) {
+    is_playing = false;
+    document
+      .querySelector("#resume-btn")
+      .classList.remove("audio-button-active");
+    document.querySelector("#pause-btn").classList.add("audio-button-active");
+    audio_playing.pause();
+  }
+}
 
-  // Resume button
-  let resume_btn = createRoundButton("&#x23F5");
-
-  // Pause button
-  let pause_btn = createRoundButton("&#x23F8");
-
-  // On click events
-  resume_btn.onclick = () => {
-    if (audio_playing) {
-      is_playing = true;
-      resume_btn.classList.add("audio-button-active");
-      pause_btn.classList.remove("audio-button-active");
-      audio_playing.play();
-    }
-  };
-  pause_btn.onclick = () => {
-    if (audio_playing) {
-      is_playing = false;
-      resume_btn.classList.remove("audio-button-active");
-      pause_btn.classList.add("audio-button-active");
-      audio_playing.pause();
-    }
-  };
-
-  buttons.appendChild(resume_btn);
-  buttons.appendChild(pause_btn);
+function populateManuscriptContent(manuscript) {
+  let article_content = document.querySelector("#article-content");
 
   let audios = [];
   for (const [i, section] of manuscript.sections.entries()) {
@@ -165,30 +144,25 @@ function do_it(manuscript) {
   a.innerText = manuscript.url;
   article_content.appendChild(a);
 
-  body.appendChild(buttons);
-  body.appendChild(article_content);
-
   audios.forEach(([span_id, _]) => {
     document.getElementById(span_id).onclick = (e) => {
       if (audio_playing) {
         audio_playing.pause();
         audio_playing.currentTime = 0;
-        audios.forEach((a, i) => {
-          document.getElementById(a[0]).classList.remove("active_span");
-          if (a[0] == e.target.id) {
-            my_play(audios.slice(i), new Audio(manuscript.outro.url));
-          }
-        });
       }
+      audios.forEach((a, i) => {
+        document.getElementById(a[0]).classList.remove("active_span");
+        if (a[0] == e.target.id) {
+          my_play(audios.slice(i), new Audio(manuscript.outro.audio_url));
+        }
+      });
     };
   });
 
-  setTimeout(() => {
-    resume_btn.classList.add("audio-button-active");
-    pause_btn.classList.remove("audio-button-active");
-    is_playing = true;
-    my_play(audios, new Audio(manuscript.outro.url));
-  }, start_delay);
+  document.querySelector("#resume-btn").classList.remove("audio-button-active");
+  document.querySelector("#pause-btn").classList.add("audio-button-active");
+  is_playing = false;
+  my_play(audios, new Audio(manuscript.outro.audio_url));
 }
 
 function alphabeticallyRankName(a, b) {
@@ -203,90 +177,17 @@ function alphabeticallyRankName(a, b) {
 
 // MAIN
 let params = new URLSearchParams(document.location.search);
-let p_year = params.get("year");
-let p_season = params.get("season");
 let p_name = params.get("name");
+if (!p_name) {
+  p_name = location.pathname.split("/").slice(-1)[0];
+}
 
-let body = document.querySelector("#content");
-let buttons = document.createElement("div");
-buttons.classList.add("buttons");
-
-if (!p_year) {
-  fetch("manuscripts.json").then((manuscripts) => {
-    manuscripts.json().then((manuscripts) => {
-      let years = [];
-      for (const [_, manuscript] of Object.entries(manuscripts)) {
-        if (!years.includes(manuscript.year)) {
-          years.push(manuscript.year);
-        }
-      }
-      years.sort();
-      years.forEach((year) =>
-        buttons.appendChild(createLinkButton(`?year=${year}`, year))
-      );
-    });
-  });
-} else if (!p_season) {
-  body.appendChild(createLinkButton("/", "Back"));
-  body.appendChild(document.createElement("hr"));
-
-  fetch("manuscripts.json").then((manuscripts) => {
-    manuscripts.json().then((manuscripts) => {
-      let seasons = [];
-      for (const [_, manuscript] of Object.entries(manuscripts)) {
-        if (manuscript.year == p_year && !seasons.includes(manuscript.season)) {
-          seasons.push(manuscript.season);
-        }
-      }
-      seasons.sort();
-      seasons.forEach((season) =>
-        buttons.appendChild(
-          createLinkButton(`?year=${p_year}&season=${season}`, season)
-        )
-      );
-    });
-  });
-} else if (!p_name) {
-  body.appendChild(createLinkButton(`?year=${p_year}`, "Back"));
-  body.appendChild(document.createElement("hr"));
-
-  fetch("manuscripts.json").then((manuscripts) => {
-    manuscripts.json().then((manuscripts) => {
-      let found_manuscripts = [];
-      for (const [_, manuscript] of Object.entries(manuscripts)) {
-        if (manuscript.year == p_year && manuscript.season == p_season) {
-          found_manuscripts.push(manuscript);
-        }
-      }
-      found_manuscripts = found_manuscripts.sort(alphabeticallyRankName);
-      found_manuscripts.forEach((manuscript) =>
-        buttons.appendChild(
-          createLinkButton(
-            `?year=${p_year}&season=${p_season}&name=${manuscript.name}`,
-            manuscript.name
-          )
-        )
-      );
-    });
-  });
-} else if (p_year && p_season && p_name) {
-  body.appendChild(
-    createLinkButton(`?year=${p_year}&season=${p_season}`, "Back")
-  );
-  body.appendChild(document.createElement("hr"));
-
-  fetch("manuscripts.json").then((manuscripts) => {
-    manuscripts.json().then((manuscripts) => {
-      for (const [_, manuscript] of Object.entries(manuscripts)) {
-        if (
-          manuscript.year == p_year &&
-          manuscript.season == p_season &&
-          p_name == manuscript.name
-        ) {
-          do_it(manuscript);
-        }
-      }
-    });
+if (p_name) {
+  fetch(`/api/manuscript/${p_name}`).then((response) => {
+    if (response.status == 200) {
+      response.json().then((manuscript) => {
+        populateManuscriptContent(manuscript);
+      });
+    }
   });
 }
-body.appendChild(buttons);

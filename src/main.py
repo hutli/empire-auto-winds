@@ -1,25 +1,30 @@
 import asyncio
 import io
 import json
+import multiprocessing
 import os
 import random
 import time
 import uuid
 from pathlib import Path
+from typing import Any
 
 import dotenv
 import httpx
+import pymongo
 import regex as re
 from bs4 import BeautifulSoup, Tag
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from pydub import AudioSegment
+from starlette.responses import FileResponse
 from tqdm import tqdm
 
 CONFIG_DIR = Path("config")
 CREDS_JSON = CONFIG_DIR / ".creds.json"
 
 dotenv.load_dotenv(CONFIG_DIR / ".env")
-CREDS = json.load(open(CREDS_JSON))
 
 with open(CONFIG_DIR / "voices.json") as f:
     VOICES = json.load(f)
@@ -29,9 +34,11 @@ with open(CONFIG_DIR / "global-replace.json") as f:
 
 ARTICLES_DIR = CONFIG_DIR / "articles"
 WEB_DIR = Path("/app/web")
-MANUSCRIPTS_JSON = WEB_DIR / "manuscripts.json"
+DB_DIR = WEB_DIR / "db"
+MANUSCRIPTS_JSON = os.environ.get("MANUSCRIPTS_JSON")
+MONGODB_DOMAIN = os.environ.get("MONGODB_DOMAIN", default="localhost")
 AUDIO_DIR_NAME = "audio"
-
+WIKI_URL = "https://www.profounddecisions.co.uk/empire-wiki"
 
 REFRESH_ARTICLES = os.getenv("REFRESH_ARTICLES", False)
 
@@ -41,6 +48,21 @@ PRE_H2_SILENCE = 2
 POST_H2_SILENCE = 2
 PRE_P_SILENCE = 0
 POST_P_SILENCE = 0.5
+
+app = FastAPI()
+mongodb_client: pymongo.MongoClient = pymongo.MongoClient(MONGODB_DOMAIN, 27017)
+DB = mongodb_client["database"]
+COLLECTION = DB["manuscripts"]
+
+if MANUSCRIPTS_JSON:
+    with open(MANUSCRIPTS_JSON) as f:
+        manuscripts = json.load(f)
+
+    to_insert = [
+        {"_id": key.replace(" ", "_"), **value} for key, value in manuscripts.items()
+    ]
+    COLLECTION.insert_many(to_insert)
+    logger.info(f"Inserted {len(to_insert)} manuscripts into mongodb")
 
 
 def _update_headers(creds: dict) -> tuple[dict, dict]:
@@ -52,36 +74,37 @@ def _update_headers(creds: dict) -> tuple[dict, dict]:
     }
 
 
-def update_headers(current_failed: bool = False) -> tuple[dict, dict]:
-    global CREDS
+async def update_headers(current_creds: dict | None = None) -> tuple[dict, dict]:
+    creds = json.load(open(CREDS_JSON))
 
-    if current_failed and (c := next(c for c in CREDS if c == CURRENT_CREDS)):
+    if current_creds and (
+        c := next(c for c in creds if c["email"] == current_creds["email"])
+    ):
         c["use"] = False
-        json.dump(CREDS, open(CREDS_JSON, "w"), indent=4)
+        json.dump(creds, open(CREDS_JSON, "w"), indent=4)
 
-    for c in CREDS:
-        if c["use"]:
-            logger.info(f'New creds found ({c["email"]})')
+    while True:
+        creds = json.load(open(CREDS_JSON))
+        useful_creds = [c for c in creds if c["use"]]
+        if useful_creds:
+            c = useful_creds[0]
+            logger.info(
+                f'New creds found "{c["email"]}" ({len(useful_creds)-1} more left)'
+            )
             return _update_headers(c)
 
-    logger.error("No more useful creds, please enter new")
-    CREDS.append(
-        {
-            "email": input("Email: "),
-            "user_id": input("User ID: "),
-            "api_key": input("API Key: "),
-            "use": True,
-        }
-    )
-    json.dump(CREDS, open(CREDS_JSON, "w"), indent=4)
-    return _update_headers(CREDS[-1])
+        logger.error("No more useful creds, please update file - checing in 10 min")
+        await asyncio.sleep(10 * 60)
 
 
-CURRENT_CREDS, HEADERS = update_headers()
+CURRENT_CREDS = None
+HEADERS = None
 
 
 async def urtts_v2(text: str, voice_id: str, quality: str = "premium") -> AudioSegment:
     global CURRENT_CREDS, HEADERS
+    if not CURRENT_CREDS or not HEADERS:
+        CURRENT_CREDS, HEADERS = await update_headers()
 
     audio_r = None
     while not audio_r:
@@ -104,7 +127,7 @@ async def urtts_v2(text: str, voice_id: str, quality: str = "premium") -> AudioS
                         logger.warning(
                             f"Credentials failed ({CURRENT_CREDS['email']}) moving on"
                         )
-                        CURRENT_CREDS, HEADERS = update_headers(current_failed=True)
+                        CURRENT_CREDS, HEADERS = await update_headers(CURRENT_CREDS)
                     else:
                         logger.warning(f"TTS request not successful {tts_json}: {r}")
                         await asyncio.sleep(10)
@@ -177,7 +200,7 @@ def text_to_spans(text: str | list[str], root_dir: Path, audio_dir: Path) -> lis
             .replace("–", "-")
             .strip(),
             "audio_path": str((audio_dir / f"{i:04}.mp3").absolute()),
-            "audio_url": str((audio_dir / f"{i:04}.mp3").relative_to(root_dir)),
+            "audio_url": "/" + str((audio_dir / f"{i:04}.mp3").relative_to(root_dir)),
         }
         for i, t in (
             enumerate(
@@ -193,64 +216,91 @@ def text_to_spans(text: str | list[str], root_dir: Path, audio_dir: Path) -> lis
     ]
 
 
-def generate_manuscript(
-    url: str, name: str, root_dir: Path, file_name: str
-) -> tuple[Path, Path, dict]:
-    while True:
-        try:
-            soup = BeautifulSoup(
-                httpx.get(url, verify=False, timeout=60).text, "html.parser"
-            )
-            break
-        except httpx.ReadTimeout:
-            logger.error(f'Could not get manuscript "{url}" retrying in 10s')
-            time.sleep(10)
+def generate_error_manuscript(article_id: str) -> dict:
+    article_url = f"{WIKI_URL}/{article_id}"
 
-    page_categories = soup.find("div", {"id": "pageCategories"})
-
-    if isinstance(page_categories, Tag):
-        category_lis = [
-            l.text for l in page_categories.find_all("li") if isinstance(l, Tag)
-        ]
-    else:
-        logger.warning(
-            f'"{url}" does not contain ID "pageCategories", using file stem ("{file_name}")'
-        )
-        category_lis = [file_name.replace("_", " ")]
-
-    year = None
-    season = None
-    title = None
-    for category in category_lis:
-        if "YE" in category:
-            year, season = category.split("YE")
-            year = year.strip() + "YE"
-            season = season.strip()
-            title = (
-                f"{season}, {year}. {name}"
-                if "YE " not in name
-                else name.replace("YE ", "YE. ")
-            )
-            break
-        else:
-            year = "other"
-            season = category
-            title = name
-
-    if not year or not season:
-        year = "other"
-        season = "unknown"
-
-    res_dir = root_dir / year / season / name
+    res_dir = DB_DIR / article_id
     res_dir.mkdir(parents=True, exist_ok=True)
 
     audio_dir = res_dir / AUDIO_DIR_NAME
     audio_dir.mkdir(parents=True, exist_ok=True)
 
+    audio_dir0 = audio_dir / f"{0:04}"
+    audio_dir0.mkdir(parents=True, exist_ok=True)
+    audio_dir1 = audio_dir / f"{1:04}"
+    audio_dir1.mkdir(parents=True, exist_ok=True)
+
+    return {
+        "title": article_id.replace("_", " "),
+        "url": article_url,
+        "sections": [
+            {
+                "section_type": "h1",
+                "spans": [
+                    {
+                        "text": article_id.replace("_", " "),
+                        "audio_path": str((audio_dir0 / f"{0:04}.mp3").absolute()),
+                        "audio_url": "/"
+                        + str((audio_dir0 / f"{0:04}.mp3").relative_to(WEB_DIR)),
+                    }
+                ],
+            },
+            {
+                "section_type": "p",
+                "spans": [
+                    {
+                        "text": "This article could not be processed by the system.",
+                        "audio_path": str((audio_dir1 / f"{0:04}.mp3").absolute()),
+                        "audio_url": "/"
+                        + str((audio_dir1 / f"{0:04}.mp3").relative_to(WEB_DIR)),
+                    },
+                    {
+                        "text": f"This could either be because the article ({article_url}) does not exist or because an error happend while downloading it.",
+                        "audio_path": str(((audio_dir1 / f"{1:04}.mp3").absolute())),
+                        "audio_url": "/"
+                        + str((audio_dir1 / f"{1:04}.mp3").relative_to(WEB_DIR)),
+                    },
+                    {
+                        "text": "The system will regularly retry to process the article in case the problem is only temporary.",
+                        "audio_path": str((audio_dir1 / f"{2:04}.mp3").absolute()),
+                        "audio_url": "/"
+                        + str((audio_dir1 / f"{2:04}.mp3").relative_to(WEB_DIR)),
+                    },
+                ],
+            },
+        ],
+        "outro": {
+            "audio_path": str((audio_dir / "outro.mp3").absolute()),
+            "audio_url": "/" + str((audio_dir / "outro.mp3").relative_to(WEB_DIR)),
+        },
+    }
+
+
+def generate_manuscript(article_id: str, res_dir: Path, audio_dir: Path) -> dict:
+    url = f"{WIKI_URL}/{article_id}"
+    try:
+        response = httpx.get(url, verify=False, timeout=60)
+    except Exception as e:
+        logger.error(f'Could not get article "{url}": {e}')
+        return generate_error_manuscript(article_id)
+
+    if not response.is_success:
+        logger.error(f'Could not get article "{url}": {response}')
+        return generate_error_manuscript(article_id)
+
+    soup = BeautifulSoup(response.text, "html.parser")
+
     content = soup.find("div", {"id": "mw-content-text"})
 
     if not isinstance(content, Tag):
-        raise TypeError(f'Soup does not contain ID "mw-content-text": {content}')
+        logger.error(f'Soup for "{url}" does not contain ID "mw-content-text"')
+        return generate_error_manuscript(article_id)
+
+    title_tag = soup.find("h1")
+    if not isinstance(title_tag, Tag):
+        logger.error(f'Soup for "{url}" does not contain h1 header')
+        return generate_error_manuscript(article_id)
+    title = title_tag.text.strip()
 
     toc = content.find("div", {"id": "toc"})
     if isinstance(toc, Tag):
@@ -264,10 +314,9 @@ def generate_manuscript(
         child.decompose()
 
     (audio_dir / f"{0:04}").mkdir(parents=True, exist_ok=True)
-    manuscript = {
-        "name": name,
-        "year": year,
-        "season": season,
+
+    return {
+        "title": title,
         "url": url,
         "sections": [
             {
@@ -278,10 +327,9 @@ def generate_manuscript(
                         "audio_path": str(
                             (audio_dir / f"{0:04}" / f"{0:04}.mp3").absolute()
                         ),
-                        "audio_url": str(
-                            (audio_dir / f"{0:04}" / f"{0:04}.mp3").relative_to(
-                                root_dir
-                            )
+                        "audio_url": "/"
+                        + str(
+                            (audio_dir / f"{0:04}" / f"{0:04}.mp3").relative_to(WEB_DIR)
                         ),
                     }
                 ],
@@ -293,7 +341,7 @@ def generate_manuscript(
                         child.text
                         if child.name != "ul"
                         else [c.text for c in child.findChildren(recursive=False)],
-                        root_dir,
+                        WEB_DIR,
                         audio_dir / f"{i+1:04}",
                     ),
                 }
@@ -301,32 +349,23 @@ def generate_manuscript(
             ],
         ],
         "outro": {
-            "path": str((audio_dir / "outro.mp3").absolute()),
-            "url": str((audio_dir / "outro.mp3").relative_to(root_dir)),
+            "audio_path": str((audio_dir / "outro.mp3").absolute()),
+            "audio_url": "/" + str((audio_dir / "outro.mp3").relative_to(WEB_DIR)),
         },
     }
 
-    return res_dir, audio_dir, manuscript
 
-
-def generate_audio(
-    manuscript: dict,
-    manuscript_i: int,
-    manuscript_total: int,
-    task: str,
-) -> None:
+def generate_audio(manuscript: dict, task: str) -> None:
     voice = random.choice([v for v in VOICES if v["use"]])
 
-    logger.info(
-        f'Chose voice "{voice["name"]}" for "{manuscript["name"]} | {manuscript["season"]} | {manuscript["year"]}"'
-    )
+    logger.info(f'Chose voice "{voice["name"]}" for "{manuscript["title"]}"')
 
     max_words = voice["max_words"] if "max_words" in voice else float("inf")
 
     for i, section in enumerate(manuscript["sections"]):
         for span in tqdm(
             section["spans"],
-            desc=f'{task} {manuscript_i+1}/{manuscript_total} "{manuscript["name"]}": {i}/{len(manuscript["sections"])-1}',
+            desc=f'{task} "{manuscript["title"]}": {i}/{len(manuscript["sections"])-1}',
         ):
             generate_voice_from_text(
                 span["text"],
@@ -340,93 +379,168 @@ def generate_audio(
         voice["id"],
         GLOBAL_REPLACE + voice["replace"],
         max_words,
-    ).export(manuscript["outro"]["path"])
+    ).export(manuscript["outro"]["audio_path"])
     logger.info(
-        f'TTS audio segments generated for article "{manuscript["name"]}": {i}/{len(manuscript["sections"])-1}'
+        f'TTS audio segments generated for article "{manuscript["title"]}": {i}/{len(manuscript["sections"])-1}'
     )
 
 
-def article_url_to_name(url: str) -> str:
-    return url.rsplit("/", 1)[-1].replace("_", " ").strip()
+def insert_or_replace(manuscript: dict) -> None:
+    try:
+        COLLECTION.insert_one(manuscript)
+    except pymongo.errors.DuplicateKeyError:
+        COLLECTION.replace_one({"_id": manuscript["_id"]}, manuscript)
 
 
-def main() -> None:
-    logger.info("Starting main loop")
-    if not MANUSCRIPTS_JSON.exists():
-        with open(MANUSCRIPTS_JSON, "w") as f:
-            f.write("{}")
-
+def article_processor(queue: multiprocessing.Queue) -> None:
     while True:
-        article_urls: set[tuple[str, str]] = set()
-        for article_file in ARTICLES_DIR.iterdir():
-            with open(article_file) as f:
-                article_urls.update((article_file.stem, url) for url in json.load(f))
+        article_id = queue.get(block=True, timeout=None)
+        logger.info(
+            f'Processing "{article_id}" ({queue.qsize()} articles left in queue)'
+        )
 
-        with open(MANUSCRIPTS_JSON) as f:
-            manuscripts = json.load(f)
+        res_dir = DB_DIR / article_id
+        res_dir.mkdir(parents=True, exist_ok=True)
 
-        missing_manuscripts = []
-        updated_manuscripts = []
-        for file_name, article_url in list(article_urls):
-            name = article_url_to_name(article_url)
-            try:
-                res_dir, audio_dir, manuscript = generate_manuscript(
-                    article_url, name, WEB_DIR, file_name
-                )
+        audio_dir = res_dir / AUDIO_DIR_NAME
+        audio_dir.mkdir(parents=True, exist_ok=True)
 
-                if manuscript["name"] in manuscripts:
-                    existing_manuscript = manuscripts[manuscript["name"]]
+        try:
+            manuscript = {
+                "_id": article_id,
+                **generate_manuscript(article_id, res_dir, audio_dir),
+            }
 
-                    if len(manuscript["sections"]) + 1 > len(list(audio_dir.iterdir())):
-                        logger.warning(
-                            f'Article "{manuscript["name"]}" ({article_url}) has fewer generated files ({len(list(audio_dir.iterdir()))}) than needed ({len(manuscript["sections"]) + 1}), regenerating files'
-                        )
-                        updated_manuscripts.append(manuscript)
-                    if REFRESH_ARTICLES and manuscript != existing_manuscript:
-                        logger.info(
-                            f'Article "{manuscript["name"]}" ({article_url}) changed, adding to updated manuscripts'
-                        )
-                        updated_manuscripts.append(manuscript)
-                else:
+            existing_manuscript = COLLECTION.find_one({"_id": (article_id)})
+            if existing_manuscript is not None:
+                if REFRESH_ARTICLES and manuscript != existing_manuscript:
                     logger.info(
-                        f'Article "{manuscript["name"]}" ({article_url}) not yet generated, added to new manuscripts'
+                        f'Article "{manuscript["title"]}" ({manuscript["url"]}) changed, updating manuscript'
                     )
-                    missing_manuscripts.append(manuscript)
-            except httpx.ConnectError as e:
-                logger.warning(f'Could not GET article "{article_url}": {e}')
-
-        if missing_manuscripts:
-            logger.info(f"Generating {len(missing_manuscripts)} missing manuscripts")
-            for i, manuscript in enumerate(missing_manuscripts):
-                generate_audio(
-                    manuscript, i, len(missing_manuscripts), "Generating manuscripts"
+                    generate_audio(manuscript, "Updating manuscript")
+                    insert_or_replace(manuscript)
+                if len(manuscript["sections"]) + 1 > len(list(audio_dir.iterdir())):
+                    logger.warning(
+                        f'Article "{manuscript["title"]}" ({manuscript["url"]}) has fewer generated files ({len(list(audio_dir.iterdir()))}) than needed ({len(manuscript["sections"]) + 1}), regenerating files'
+                    )
+                    generate_audio(manuscript, "Updating manuscript")
+                    insert_or_replace(manuscript)
+            else:
+                logger.info(
+                    f'Article "{manuscript["title"]}" ({manuscript["url"]}) not yet generated, generating manuscript'
                 )
-
-                manuscripts[manuscript["name"]] = manuscript
-
-                # Sort by key (article name)
-                manuscripts = dict(sorted(manuscripts.items()))
-
-                with open(MANUSCRIPTS_JSON, "w") as f:
-                    json.dump(manuscripts, f, indent=4)
-
-        if updated_manuscripts:
-            logger.info(f"Generating {len(updated_manuscripts)} updated manuscripts")
-            for i, manuscript in enumerate(updated_manuscripts):
-                generate_audio(
-                    manuscript, i, len(updated_manuscripts), "Updating manuscripts"
-                )
-
-                manuscripts[manuscript["name"]] = manuscript
-
-                # Sort by key (article name)
-                manuscripts = dict(sorted(manuscripts.items()))
-
-                with open(MANUSCRIPTS_JSON, "w") as f:
-                    json.dump(manuscripts, f, indent=4)
-
-        time.sleep(60 * 60)  # check every hour
+                generate_audio(manuscript, "Generating manuscript")
+                insert_or_replace(manuscript)
+        except httpx.ConnectError as e:
+            logger.warning(f'Could not GET article "{article_id}": {e}')
 
 
-if __name__ == "__main__":
-    main()
+article_queue: multiprocessing.Queue = multiprocessing.Queue()
+multiprocessing.Process(target=article_processor, args=(article_queue,)).start()
+
+
+@app.get("/empire-wiki/{article:path}")
+def index(article: str) -> FileResponse:
+    return FileResponse("/app/web/index.html")
+
+
+@app.get("/api/manuscript/{article_id:path}")
+def manuscript(article_id: str) -> Any:
+    article_id = article_id.replace(" ", "_")
+    manuscript = COLLECTION.find_one({"_id": article_id})
+    article_queue.put(article_id)
+    if manuscript is not None:
+        return manuscript
+    else:
+        insert_or_replace(
+            {
+                "_id": article_id,
+                "title": article_id,
+                "url": f"{WIKI_URL}/{article_id}",
+                "sections": [
+                    {
+                        "section_type": "h1",
+                        "spans": [
+                            {
+                                "text": article_id,
+                                "audio_path": "",
+                                "audio_url": "",
+                            }
+                        ],
+                    },
+                    {
+                        "section_type": "p",
+                        "spans": [
+                            {
+                                "text": "Generating...",
+                                "audio_path": "",
+                                "audio_url": "",
+                            }
+                        ],
+                    },
+                    {
+                        "section_type": "p",
+                        "spans": [
+                            {
+                                "text": "The system is currently processing this article."
+                            },
+                            {
+                                "text": "This will take anywhere from a couple of minutes to hours, depending on the article and how many articles are ahead of this one in the queue."
+                            },
+                            {
+                                "text": "You are welcome to come back later to check but unfortunately the system is not smart enough to give you an estimate."
+                            },
+                        ],
+                    },
+                ],
+            }
+        )
+        return {
+            "title": article_id,
+            "url": f"{WIKI_URL}/{article_id}",
+            "sections": [
+                {
+                    "section_type": "h1",
+                    "spans": [
+                        {
+                            "text": "New Article!",
+                            "audio_path": "",
+                            "audio_url": "",
+                        }
+                    ],
+                },
+                {
+                    "section_type": "p",
+                    "spans": [
+                        {
+                            "text": "Congratulations! You are the first to visit this article!",
+                            "audio_path": "",
+                            "audio_url": "",
+                        }
+                    ],
+                },
+                {
+                    "section_type": "p",
+                    "spans": [
+                        {
+                            "text": "Unfortunately, this means that the system now have to generate this article.",
+                            "audio_path": "",
+                            "audio_url": "",
+                        },
+                        {
+                            "text": "This it will take anywhere from a couple of minutes to hours, depending on the article and how many articles are ahead of this one in the queue.",
+                            "audio_path": "",
+                            "audio_url": "",
+                        },
+                        {
+                            "text": "You are welcome to come back later to check again but unfortunately the system is not smart enough to give you an estimate.",
+                            "audio_path": "",
+                            "audio_url": "",
+                        },
+                    ],
+                },
+            ],
+        }
+
+
+app.mount("/", StaticFiles(directory="/app/web", html=True), name="Web")

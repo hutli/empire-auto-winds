@@ -11,6 +11,10 @@ RUN pip install -r /tmp/requirements.txt
 
 WORKDIR /app/
 
+# copy entrypoint files
+COPY ./log_conf.json /app/
+COPY ./entrypoint.sh /app/
+
 # copy in config
 COPY ./config/* /app/config/
 
@@ -18,8 +22,11 @@ COPY ./config/* /app/config/
 COPY ./src/*.py /app/src/
 
 # copy in web source
-COPY ./web /app/
+COPY ./web /app/web/
 
-RUN mypy src --config-file /app/config/mypy.ini
+# test application
+COPY ./mypy.ini /app/
+RUN mypy src --config-file mypy.ini
 
-CMD python ./src/main.py
+# run application
+ENTRYPOINT ./entrypoint.sh

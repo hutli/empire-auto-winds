@@ -1,12 +1,15 @@
 beautifulsoup4
+fastapi
 httpx
 loguru
 mypy
 pydub
 pydub-stubs
+pymongo
 python-dotenv
 regex
 tqdm
 tqdm-stubs
 types-beautifulsoup4
 types-regex
+uvicorn

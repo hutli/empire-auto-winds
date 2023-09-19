@@ -124,7 +124,25 @@
         />
       </fieldset>
     </div>
-    <div id="content"></div>
+    <div id="content">
+      <div class="article-menu">
+        <fieldset class="playback-speed-container">
+          <legend>Playback Speed</legend>
+          <input
+            id="playback-speed-slider"
+            class="max-slider"
+            type="range"
+            min="1"
+            max="200"
+            value="100"
+            onchange="changePlaybackSpeed()"
+          />
+        </fieldset>
+        <div class="audio-button" id="resume-btn" onclick="resumePlayback()"><b class="fas">&#x23F5</b></div>
+        <div class="audio-button" id="pause-btn" onclick="pausePlayback()"><b class="fas">&#x23F8</b></div>
+      </div>
+      <div id="article-content"></div>
+    </div>
     <a
       class="footer"
       title='This website is still in development, if you have any ideas, changes or

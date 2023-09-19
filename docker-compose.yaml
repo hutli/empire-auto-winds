@@ -3,29 +3,30 @@ version: "3"
 services:
   auto-winds:
     build: .
-    stdin_open: true # docker run -i
-    tty: true        # docker run -t
     environment:
-      - REFRESH_ARTICLES="yes"
-      - MONGODB_URL="http://autowinds:27017"
-    tty: true
+      REFRESH_ARTICLES: "yes"
+      MONGODB_DOMAIN: "mongodb"
+      # MANUSCRIPTS_JSON: "/app/config/manuscripts.json"
     ports:
-      - 4070:80
+      - 4010:80
     volumes:
-      - /www/winds.empirelrpmap.com:/app/web
+      - ./db:/app/web/db/
       - ./config:/app/config
     networks:
-      - autowinds
+      - auto-winds
+    depends_on:
+      - mongodb
 
   mongodb:
     image: mongo:6-jammy
     expose:
       - 27017
     volumes:
-      - autowinds:/data/db
+      - auto-winds:/data/db
     networks:
-      - autowinds
+      - auto-winds
+
 volumes:
-  autowinds:
+  auto-winds:
 networks:
-  autowinds:
+  auto-winds:

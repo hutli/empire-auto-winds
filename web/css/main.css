@@ -145,20 +145,19 @@ li:hover {
   grid-row-gap: 0px;
 }
 
-.article_menu {
+.article-menu {
   width: 100%;
   max-width: 1000px;
   padding-bottom: 20px;
   border-bottom: 2px solid white;
   display: grid;
   background-color: #222222;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: 1fr auto auto;
   grid-template-rows: 1fr;
   grid-column-gap: 10px;
   grid-row-gap: 0px;
 }
-
-.article_content {
+#article-content {
   overflow-y: scroll;
 }
 
@@ -190,7 +189,7 @@ li:hover {
   }
 }
 @media screen and (max-width: 600px) {
-  .article_menu {
+  .article-menu {
     grid-template-columns: 1fr 1fr;
     grid-column-gap: 10px;
     grid-row-gap: 10px;

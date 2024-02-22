@@ -16,6 +16,7 @@ services:
       - auto-winds
     depends_on:
       - mongodb
+    tty: true
 
   mongodb:
     image: mongo:6-jammy

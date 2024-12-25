@@ -1,6 +1,6 @@
 {
-  "name": "Empire LRP Map",
-  "short_name": "Empire LRP Map",
+  "name": "Empire Wikipedia Winds of Speech",
+  "short_name": "Empire Wikipedia Winds of Speech",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -15,6 +15,6 @@
   ],
   "theme_color": "#333333",
   "background_color": "#333333",
-  "start_url": "https://winds.empirelrpmap.com",
+  "start_url": "https://www.pprofounddecisions.co.uk/",
   "display": "standalone"
 }

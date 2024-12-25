@@ -1,3 +1,5 @@
+const INTERSECTION_SILENCE = 500;
+
 let audio_playing = null;
 let is_playing = false;
 let playback_rate = 1.0;
@@ -22,16 +24,21 @@ function my_highlight(span, length) {
 }
 
 function start_highlights(audios) {
-  for (let i = 0; i < audios[0][0].length; i++) {
-    let timeout =
-      (audios[0][1][i].start - audio_playing.currentTime * 1000) /
-      playback_rate;
-    if (timeout >= 0) {
-      TIMEOUTS.push(
-        setTimeout(() => {
-          my_highlight(audios[0][0][i], audios[0][1][i].length / playback_rate);
-        }, timeout),
-      );
+  if (audios.length) {
+    for (let i = 0; i < audios[0][0].length; i++) {
+      let timeout =
+        (audios[0][1][i].start - audio_playing.currentTime * 1000) /
+        playback_rate;
+      if (timeout >= 0) {
+        TIMEOUTS.push(
+          setTimeout(() => {
+            my_highlight(
+              audios[0][0][i],
+              audios[0][1][i].length / playback_rate,
+            );
+          }, timeout),
+        );
+      }
     }
   }
 }
@@ -47,7 +54,7 @@ async function my_play(audios, outro) {
   CURRENT_AUDIOS = audios;
   if (audios.length > 0) {
     audios[0][2].addEventListener("ended", () => {
-      my_play(audios.slice(1), outro);
+      setTimeout(() => my_play(audios.slice(1), outro), INTERSECTION_SILENCE);
     });
     audio_playing = audios[0][2];
   } else {
@@ -154,6 +161,7 @@ function pausePlayback() {
 
 async function populateManuscriptContent(manuscript) {
   let article_content = document.querySelector("#article-content");
+  article_content.innerHTML = "";
   let progress = document.createElement("p");
 
   if (manuscript.state == "generating") {
@@ -166,71 +174,82 @@ async function populateManuscriptContent(manuscript) {
       ).toFixed(2)}%`;
       article_content.appendChild(progress);
     }
-  } else if (manuscript.state == "done" && manuscript.state == "error") {
-    if (manuscript.progress > 0 && manuscript.progress < 100) {
-      progress.innerText = `Updating article - ${(
-        manuscript.progress * 100
-      ).toFixed(2)}%`;
-      article_content.appendChild(progress);
-    }
   }
 
   let audios = [];
-  for (const [i, section] of manuscript.sections.entries()) {
+  let i = 0;
+
+  for (const section of manuscript.sections) {
     let section_elem = document.createElement(section.section_type);
-    section_elem.classList.add("section");
-    section_elem.id = i;
-    section_elem.title = "Start audio from this section";
-    section_elem.onclick = () => {
-      if (audio_playing) {
-        audio_playing.pause();
-        audio_playing.currentTime = 0;
+    if (section.section_type == "img") {
+      section_elem.src = section.src;
+      section_elem.alt = section.alt;
+    } else {
+      section_elem.classList.add("section");
+      section_elem.id = i;
+      section_elem.title = "Start audio from this section";
+      section_elem.onclick = (e) => {
+        if (audio_playing) {
+          audio_playing.pause();
+          audio_playing.currentTime = 0;
+        }
+
+        clear_highlights();
+        my_play(
+          audios.slice(Number(e.srcElement.id.split("_")[0])),
+          new Audio(manuscript.outro.audio_url),
+        );
+      };
+
+      let span_ids = [];
+      for (let [ii, span] of section.spans.entries()) {
+        let span_elem = document.createElement(
+          section.section_type != "ul" && section.section_type != "ol"
+            ? "span"
+            : "li",
+        );
+
+        let span_id = `${String(i).padStart(4, "0")}_${String(ii).padStart(
+          4,
+          "0",
+        )}`;
+        span_ids.push(span_id);
+        span_elem.textContent = span.text;
+        span_elem.id = span_id;
+        section_elem.appendChild(span_elem);
       }
-
-      clear_highlights();
-      my_play(audios.slice(i), new Audio(manuscript.outro.audio_url));
-    };
-
-    let span_ids = [];
-    for (let [ii, span] of section.spans.entries()) {
-      let span_elem = document.createElement(
-        section.section_type != "ul" && section.section_type != "ol"
-          ? "span"
-          : "li",
+      if (section.alignment_url && section.audio_url) {
+        audios.push([
+          span_ids,
+          await (await fetch(section.alignment_url)).json(),
+          new Audio(section.audio_url),
+        ]);
+      }
+      section_elem.innerHTML = section_elem.innerHTML.replaceAll(
+        "</span><",
+        "</span> <",
       );
-
-      let span_id = `${String(i).padStart(4, "0")}_${String(ii).padStart(
-        4,
-        "0",
-      )}`;
-      span_ids.push(span_id);
-      span_elem.textContent = span.text;
-      span_elem.id = span_id;
-      section_elem.appendChild(span_elem);
+      i++;
     }
-    if (section.alignment_url && section.audio_url) {
-      audios.push([
-        span_ids,
-        await (await fetch(section.alignment_url)).json(),
-        new Audio(section.audio_url),
-      ]);
-    }
-    section_elem.innerHTML = section_elem.innerHTML.replaceAll(
-      "</span><",
-      "</span> <",
-    );
     article_content.appendChild(section_elem);
   }
 
-  article_content.appendChild(document.createElement("hr"));
-  let a = document.createElement("a");
-  a.href = manuscript.url;
-  a.target = "_blank";
-  a.innerText = manuscript.url;
-  article_content.appendChild(a);
+  console.debug(manuscript.url);
+  if (manuscript.url) {
+    article_content.appendChild(document.createElement("hr"));
+    let a = document.createElement("a");
+    a.href = manuscript.url;
+    a.target = "_blank";
+    a.innerText = manuscript.url;
+    article_content.appendChild(a);
+  }
 
-  document.querySelector("#resume-btn").classList.remove("audio-button-active");
-  document.querySelector("#pause-btn").classList.add("audio-button-active");
+  if (manuscript.state != "generating") {
+    document
+      .querySelector("#resume-btn")
+      .classList.remove("audio-button-active");
+    document.querySelector("#pause-btn").classList.add("audio-button-active");
+  }
   is_playing = false;
   if (manuscript.outro && manuscript.outro.audio_url) {
     my_play(audios, new Audio(manuscript.outro.audio_url));
@@ -247,6 +266,36 @@ function alphabeticallyRankName(a, b) {
   return 0;
 }
 
+function updateMeta(manuscript) {
+  if (manuscript.title) {
+    document.title = manuscript.title;
+    document
+      .querySelector('meta[property="og:title"]')
+      .setAttribute("content", manuscript.title);
+    document
+      .querySelector('meta[property="twitter:title"]')
+      .setAttribute("content", manuscript.title);
+  }
+  for (const section of manuscript.sections) {
+    if (section.section_type == "p") {
+      let overview = section.spans.map((s) => s.text).join(" ");
+      if (overview) {
+        document
+          .querySelector('meta[name="description"]')
+          .setAttribute("content", overview);
+        document
+          .querySelector('meta[property="og:description"]')
+          .setAttribute("content", overview);
+        document
+          .querySelector('meta[property="twitter:description"]')
+          .setAttribute("content", overview);
+      }
+      return;
+    }
+  }
+  return null;
+}
+
 // MAIN
 let params = new URLSearchParams(document.location.search);
 let p_name = params.get("name");
@@ -258,8 +307,33 @@ if (p_name) {
   fetch(`/api/manuscript/${p_name}`).then((response) => {
     if (response.status == 200) {
       response.json().then((manuscript) => {
+        updateMeta(manuscript);
+        if (manuscript.complete_audio_url) {
+          let download_btn = document.getElementById("download-btn");
+          download_btn.href = manuscript.complete_audio_url;
+          download_btn.download = `${manuscript["_id"]}.mp3`;
+          download_btn.classList.remove("download-button-hidden");
+        }
         populateManuscriptContent(manuscript);
       });
+    } else {
+      console.error(response);
+    }
+  });
+} else {
+  fetch(`/api/manuscript/`).then((response) => {
+    if (response.status == 200) {
+      response.json().then((manuscript) => {
+        if (manuscript.complete_audio_url) {
+          let download_btn = document.getElementById("download-btn");
+          download_btn.href = manuscript.complete_audio_url;
+          download_btn.download = `${manuscript["_id"]}.mp3`;
+          download_btn.classList.remove("download-button-hidden");
+        }
+        populateManuscriptContent(manuscript);
+      });
+    } else {
+      console.error(response);
     }
   });
 }

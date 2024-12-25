@@ -8,45 +8,41 @@
     />
 
     <!-- Primary Meta Tags -->
-    <title>Empire Winds of Listening</title>
-    <meta name="title" content="Empire Winds of Listening" />
+    <title>Empire Wikipedia Winds of Speech</title>
+    <meta name="title" content="Empire Wikipedia Winds of Speech" />
     <meta
       name="description"
-      content="A website designed to help people better understand the Empire Wikipedia Winds."
+      content="An unofficial text-to-speech system for the Empire Wikipedia."
     />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://winds.empirelrpmap.com/" />
-    <meta property="og:title" content="Empire Winds of Listening" />
+    <meta property="og:url" content="https://www.pprofounddecisions.co.uk/" />
+    <meta property="og:title" content="Empire Wikipedia Winds of Speech" />
     <meta
       property="og:description"
-      content="A website designed to help people better understand the Empire Wikipedia Winds."
+      content="An unofficial text-to-speech system for the Empire Wikipedia."
     />
     <meta
       property="og:image:url"
-      content="https://winds.empirelrpmap.com/meta.png"
+      content="https://www.pprofounddecisions.co.uk/meta.png"
     />
-    <meta
-      property="og:image:secure_url"
-      content="https://winds.empirelrpmap.com/meta.png"
-    />
-    <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="1200" />
     <meta property="fb:app_id" content="966242223397117" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://winds.empirelrpmap.com/" />
-    <meta property="twitter:title" content="Empire Winds of Listening" />
+    <meta
+      property="twitter:url"
+      content="https://www.pprofounddecisions.co.uk/"
+    />
+    <meta property="twitter:title" content="Empire Wikipedia Winds of Speech" />
     <meta
       property="twitter:description"
-      content="A website designed to help people better understand the Empire Wikipedia Winds."
+      content="An unofficial text-to-speech system for the Empire Wikipedia."
     />
     <meta
       property="twitter:image"
-      content="https://winds.empirelrpmap.com/meta.png"
+      content="https://www.pprofounddecisions.co.uk/meta.png"
     />
 
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -58,74 +54,134 @@
     <meta name="theme-color" content="#333333" />
 
     <link rel="stylesheet" href="/css/main.css" />
+    <link rel="stylesheet" href="/css/menu.css" />
   </head>
   <body class="arial">
-    <div class="global-settings">
-      <fieldset>
-        <legend>Font type</legend>
-        <div class="font-type-rows">
-          <input
-            type="radio"
-            name="font_selection"
-            value="Open Dyslexic"
-            onclick="changeFont(this);"
-          />
-          <label>Open Dyslexic</label>
+    <div id="menuToggle">
+      <!--
+      A fake / hidden checkbox is used as click reciever,
+      so you can use the :checked selector on it.
+      -->
+      <input class="menuCheckbox" type="checkbox" />
 
-          <input
-            type="radio"
-            name="font_selection"
-            value="Arial"
-            onclick="changeFont(this);"
-            checked
-          />
-          <label>Arial</label>
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend>Font size</legend>
-        <div class="font-size-rows">
-          <input
-            type="radio"
-            name="font-size-selection"
-            value="medium"
-            onclick="changeFontSize(this);"
-          />
-          <label>Small</label>
+      <!--
+      Some spans to act as a hamburger.
+      
+      They are acting like a real hamburger,
+      not that McDonalds stuff.
+      -->
+      <span></span>
+      <span></span>
+      <span></span>
 
-          <input
-            type="radio"
-            name="font-size-selection"
-            value="larger"
-            onclick="changeFontSize(this);"
-            checked
-          />
-          <label>Medium</label>
+      <!--
+      Too bad the menu has to be inside of the button
+      but hey, it's pure CSS magic.
+      -->
+      <div id="menu" class="global-settings">
+        <fieldset>
+          <legend>Font type</legend>
+          <div class="font-type-rows">
+            <input
+              type="radio"
+              name="font_selection"
+              value="Open Dyslexic"
+              onclick="changeFont(this);"
+            />
+            <label>Open Dyslexic</label>
 
+            <input
+              type="radio"
+              name="font_selection"
+              value="Arial"
+              onclick="changeFont(this);"
+              checked
+            />
+            <label>Arial</label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Font size</legend>
+          <div class="font-size-rows">
+            <input
+              type="radio"
+              name="font-size-selection"
+              value="medium"
+              onclick="changeFontSize(this);"
+            />
+            <label>Small</label>
+
+            <input
+              type="radio"
+              name="font-size-selection"
+              value="larger"
+              onclick="changeFontSize(this);"
+              checked
+            />
+            <label>Medium</label>
+
+            <input
+              type="radio"
+              name="font-size-selection"
+              value="x-large"
+              onclick="changeFontSize(this);"
+            />
+            <label>Large</label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Line height</legend>
           <input
-            type="radio"
-            name="font-size-selection"
-            value="x-large"
-            onclick="changeFontSize(this);"
+            type="range"
+            min="0.5"
+            max="2.0"
+            value="1.5"
+            step="0.1"
+            class="max-slider"
+            onchange="changeLineHeight(this);"
           />
-          <label>Large</label>
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend>Line height</legend>
-        <input
-          type="range"
-          min="0.5"
-          max="2.0"
-          value="1.5"
-          step="0.1"
-          class="max-slider"
-          onchange="changeLineHeight(this);"
-        />
-      </fieldset>
+        </fieldset>
+      </div>
     </div>
     <div id="content">
+      <div id="article-content"></div>
       <div class="article-menu">
+        <div class="audio-button" id="resume-btn" onclick="resumePlayback()">
+          <b class="fas"
+            ><svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="{1.5}"
+              stroke="currentColor"
+              className="w-6 h-6"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"
+              />
+            </svg>
+          </b>
+        </div>
+        <div class="audio-button" id="pause-btn" onclick="pausePlayback()">
+          <b class="fas"
+            ><svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1.5"
+              stroke="currentColor"
+              class="w-6 h-6"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15.75 5.25v13.5m-7.5-13.5v13.5"
+              />
+            </svg>
+          </b>
+        </div>
         <fieldset class="playback-speed-container">
           <legend>Playback Speed</legend>
           <input
@@ -138,19 +194,111 @@
             onchange="changePlaybackSpeed()"
           />
         </fieldset>
-        <div class="audio-button" id="resume-btn" onclick="resumePlayback()"><b class="fas">&#x23F5</b></div>
-        <div class="audio-button" id="pause-btn" onclick="pausePlayback()"><b class="fas">&#x23F8</b></div>
+        <a class="audio-button download-button-hidden" id="download-btn">
+          <b class="fas"
+            ><svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="1"
+              stroke="currentColor"
+              class="w-6 h-6"
+            >
+              <path
+                d="M5 12V18C5 18.5523 5.44772 19 6 19H18C18.5523 19 19 18.5523 19 18V12"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M12 3L12 15M12 15L16 11M12 15L8 11"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </b>
+        </a>
       </div>
-      <div id="article-content"></div>
     </div>
-    <a
-      class="footer"
-      title='This website is still in development, if you have any ideas, changes or
-      constructive critisism please contact me on "admin@empirelrpmap.com"'
-      href="mailto:admin@empirelrpmap.com"
-    >
-      ✉️</a
-    >
+    <footer>
+      <a
+        class="footer"
+        title="Information"
+        href="https://pprofounddecisions.co.uk"
+        target="_blank"
+      >
+        <?xml version="1.0" encoding="utf-8"?>
+        <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 62 62"
+          version="1.1"
+        >
+          <defs>
+            <linearGradient
+              id="fieldGradient"
+              gradientUnits="userSpaceOnUse"
+              x1="42.9863"
+              y1="7.01270"
+              x2="22.0144"
+              y2="51.9871"
+            >
+              <stop offset="0.0" stop-color="#BCD6FE" />
+              <stop offset="1.0" stop-color="#6787D3" />
+            </linearGradient>
+            <linearGradient
+              id="edgeGradient"
+              gradientUnits="userSpaceOnUse"
+              x1="55.4541"
+              y1="42.7529"
+              x2="9.54710"
+              y2="16.2485"
+            >
+              <stop offset="0.0" stop-color="#3057A7" />
+              <stop offset="1.0" stop-color="#5A7AC6" />
+            </linearGradient>
+            <radialGradient id="shadowGradient">
+              <stop offset="0.0" stop-color="#C0C0C0" />
+              <stop offset="0.88" stop-color="#C0C0C0" />
+              <stop offset="1.0" stop-color="#C0C0C0" stop-opacity="0.0" />
+            </radialGradient>
+          </defs>
+          <circle
+            id="shadow"
+            r="26.5"
+            cx="32.5"
+            cy="29.5"
+            fill="url(#shadowGradient)"
+            transform="matrix(1.0648,0.0,0.0,1.064822,-2.1,1.0864)"
+          />
+          <circle
+            id="field"
+            r="25.8"
+            cx="31"
+            cy="31"
+            fill="url(#fieldGradient)"
+            stroke="url(#edgeGradient)"
+            stroke-width="2"
+          />
+          <g id="info" fill="white">
+            <polygon
+              points="23,25 35,25 35,44 39,44 39,48 23,48 23,44 27,44 27,28 23,28 23,25"
+            />
+            <circle r="4" cx="31" cy="17" />
+          </g>
+        </svg>
+      </a>
+      <a
+        class="footer"
+        title="Support"
+        href="https://ko-fi.com/bloodcrowknott"
+        target="_blank"
+      >
+        ☕
+      </a>
+      <a class="footer" title="Contact" href="mailto:admin@empirelrpmap.com">
+        ✉️
+      </a>
+    </footer>
     <script src="/js/main.js"></script>
   </body>
 </html>

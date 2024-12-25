@@ -4,7 +4,7 @@
     "name": "Dorothy",
     "use": true,
     "model": "eleven_multilingual_v1",
-    "voice_settings": { "stability": 0.4, "similarity_boost": 0.3 },
+    "voice_settings": { "stability": 0.5, "similarity_boost": 0.75 },
     "generation_config": { "chunk_length_schedule": [500] }
   },
   {
@@ -12,15 +12,15 @@
     "name": "Lily",
     "use": true,
     "model": "eleven_multilingual_v2",
-    "voice_settings": { "stability": 0.4, "similarity_boost": 0.3 },
+    "voice_settings": { "stability": 0.5, "similarity_boost": 0.75 },
     "generation_config": { "chunk_length_schedule": [500] }
   },
   {
     "id": "D38z5RcWu1voky8WS1ja",
     "name": "Fin",
-    "use": true,
+    "use": false,
     "model": "eleven_multilingual_v1",
-    "voice_settings": { "stability": 0.4, "similarity_boost": 0.3 },
+    "voice_settings": { "stability": 0.5, "similarity_boost": 0.75 },
     "generation_config": { "chunk_length_schedule": [500] }
   },
   {
@@ -28,55 +28,55 @@
     "name": "George",
     "use": true,
     "model": "eleven_multilingual_v2",
-    "voice_settings": { "stability": 0.4, "similarity_boost": 0.3 },
+    "voice_settings": { "stability": 0.5, "similarity_boost": 0.75 },
     "generation_config": { "chunk_length_schedule": [500] }
   },
   {
-    "id": "03LJGzbhzLbfEsRT1DHY",
+    "id": "Jz0a00s1NPj7cVQnR4Dv",
     "name": "Valentino",
     "use": true,
     "model": "eleven_multilingual_v2",
-    "voice_settings": { "stability": 0.4, "similarity_boost": 0.3 },
+    "voice_settings": { "stability": 0.5, "similarity_boost": 0.75 },
     "generation_config": { "chunk_length_schedule": [500] }
   },
   {
-    "id": "1tve3V6YVMzvT5ILUdO2",
+    "id": "hbP9zB5YGtr5MXOKCpzL",
     "name": "Brian",
     "use": true,
     "model": "eleven_multilingual_v2",
-    "voice_settings": { "stability": 0.4, "similarity_boost": 0.3 },
+    "voice_settings": { "stability": 0.5, "similarity_boost": 0.75 },
     "generation_config": { "chunk_length_schedule": [500] }
   },
   {
-    "id": "P7I1AmBT0DzWAucPNK34",
+    "id": "tMLKvm2fOjcWlM1D1tdE",
     "name": "Ella",
     "use": true,
     "model": "eleven_multilingual_v2",
-    "voice_settings": { "stability": 0.4, "similarity_boost": 0.3 },
+    "voice_settings": { "stability": 0.5, "similarity_boost": 0.75 },
     "generation_config": { "chunk_length_schedule": [500] }
   },
   {
-    "id": "cfnxiA3xudLkZ8qwzk2J",
+    "id": "VRWq46bvRNOR0GCxqeRt",
     "name": "Emily",
     "use": true,
     "model": "eleven_multilingual_v2",
-    "voice_settings": { "stability": 0.4, "similarity_boost": 0.3 },
+    "voice_settings": { "stability": 0.5, "similarity_boost": 0.75 },
     "generation_config": { "chunk_length_schedule": [500] }
   },
   {
-    "id": "coTrtVVFfBWLuvaATUN3",
+    "id": "1q5ZvHKFbHfRSGjZHTO3",
     "name": "Knightley",
     "use": true,
     "model": "eleven_multilingual_v2",
-    "voice_settings": { "stability": 0.4, "similarity_boost": 0.3 },
+    "voice_settings": { "stability": 0.5, "similarity_boost": 0.75 },
     "generation_config": { "chunk_length_schedule": [500] }
   },
   {
-    "id": "db72jBdLf4lDVB1080Yq",
+    "id": "4XE3NCLHaa7DuKj26i7A",
     "name": "Victoria",
     "use": true,
     "model": "eleven_multilingual_v2",
-    "voice_settings": { "stability": 0.4, "similarity_boost": 0.3 },
+    "voice_settings": { "stability": 0.5, "similarity_boost": 0.75 },
     "generation_config": { "chunk_length_schedule": [500] }
   }
 ]

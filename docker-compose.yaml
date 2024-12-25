@@ -4,11 +4,11 @@ services:
   auto-winds:
     build: .
     environment:
-      REFRESH_ARTICLES: "yes"
+      GENERATE_ARTICLES: "yes"
+      # REFRESH_ARTICLES: "yes"
       MONGODB_DOMAIN: "mongodb"
-      # MANUSCRIPTS_JSON: "/app/config/manuscripts.json"
     ports:
-      - 4010:80
+      - 127.0.0.1:4010:80
     volumes:
       - ./db:/app/web/db/
       - ./config:/app/config
@@ -20,6 +20,8 @@ services:
 
   mongodb:
     image: mongo:6-jammy
+    # ports:
+    #   - 127.0.0.1:28934:27017
     expose:
       - 27017
     volumes:

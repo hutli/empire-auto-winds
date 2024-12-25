@@ -1,3 +1,9 @@
+:root {
+  --background-colour: #202124;
+  --text-colour: #e8eaed;
+  --my-blue: #8ab4f8;
+}
+
 @font-face {
   font-family: "Open Dyslexic";
   src: url("../fonts/opendyslexic/Regular.eot");
@@ -48,8 +54,8 @@ body {
   max-width: 1000px;
   margin: auto;
   font-size: larger;
-  color: #a0a0a0;
-  background-color: #222222;
+  color: var(--text-colour);
+  background-color: var(--background-colour);
   font-family: "Open Dyslexic", Arial, Helvetica, sans-serif;
 }
 
@@ -66,7 +72,7 @@ button:not([disabled]) {
 
 a {
   word-wrap: break-word;
-  color: #3584e4;
+  color: var(--my-blue);
 }
 
 p {
@@ -74,10 +80,21 @@ p {
 }
 
 span {
-  -moz-transition: color 1s;
-  -o-transition: color 1s;
-  -webkit-transition: color 1s;
-  transition: color 1s;
+  -moz-transition: 1s;
+  -o-transition: 1s;
+  -webkit-transition: 1s;
+  transition: 1s;
+  color: var(--text-colour);
+  box-shadow: 0 0 0 3px rgba(32, 33, 36, 0);
+}
+img {
+  width: -webkit-fill-available;
+  margin: 0 20px;
+}
+
+cite {
+  margin: 10px;
+  display: block;
 }
 
 .section {
@@ -88,8 +105,8 @@ span {
   cursor: pointer;
 }
 
-.section:hover {
-  color: #3584e4;
+.section:hover span {
+  color: var(--my-blue);
 }
 
 .audio-button {
@@ -99,7 +116,7 @@ span {
   height: 80px;
   width: 80px;
   margin: auto;
-  background: #333333;
+  background: #202124;
   border-radius: 50%;
   transition: all 0.3s ease-in;
   box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.1),
@@ -110,14 +127,13 @@ span {
   line-height: 0;
   place-items: center;
   font-size: 4rem;
-  color: #f5f5f5;
 }
 .audio-button-active {
   box-shadow: inset 10px 10px 10px rgba(0, 0, 0, 0.1),
     inset -10px -10px 10px rgba(0, 0, 0, 0.6);
 }
 .audio-button-active .fas {
-  color: #3584e4;
+  color: var(--my-blue);
 }
 
 .font-type-rows {
@@ -141,11 +157,13 @@ span {
 }
 
 .active_span {
-  color: #f5f5f5;
-  -moz-transition: color 0s;
-  -o-transition: color 0s;
-  -webkit-transition: color 0s;
-  transition: color 0s;
+  -moz-transition: 0.2s;
+  -o-transition: 0.2s;
+  -webkit-transition: 0.2s;
+  transition: 0.2s;
+  color: var(--my-blue);
+  /* background-color: var(--background-colour); */
+  /* box-shadow: 0 0 0 3px var(--text-colour); */
 }
 
 .buttons {
@@ -164,12 +182,14 @@ span {
 
 .article-menu {
   width: 100%;
-  max-width: 1000px;
+  max-width: 900px;
+  padding-left: 50px;
+  padding-right: 50px;
+  padding-top: 20px;
   padding-bottom: 20px;
-  border-bottom: 2px solid white;
+  border-top: 2px solid white;
   display: grid;
-  background-color: #222222;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: auto auto 1fr auto;
   grid-template-rows: 1fr;
   grid-column-gap: 10px;
   grid-row-gap: 0px;
@@ -192,29 +212,77 @@ span {
   width: 100%;
 }
 
-.footer {
+footer {
   position: fixed;
   bottom: 20px;
   background: #333;
   right: 20px;
   text-align: center;
+  background: transparent;
+  display: flex;
+  flex-flow: column;
+  row-gap: 10px;
+}
+footer a {
+  text-decoration: none;
 }
 
-@media screen and (max-width: 900px) {
-  body {
-    padding-left: 20px;
-    padding-right: 20px;
-  }
+.fas {
+  width: 50px;
 }
-@media screen and (max-width: 600px) {
+
+.download-button-hidden {
+  display: none;
+}
+
+@media screen and (max-width: 1000px) {
+  #article-content {
+    padding: 0 20px;
+    margin-top: 25px;
+  }
+  #resume-btn {
+    order: 1;
+  }
+  #pause-btn {
+    order: 2;
+  }
+  .playback-speed-container {
+    order: 4;
+  }
+  #download-btn {
+    order: 3;
+  }
+
   .article-menu {
-    grid-template-columns: 1fr 1fr;
+    max-width: 1000px;
+    grid-template-columns: 1fr 1fr 1fr;
     grid-column-gap: 10px;
     grid-row-gap: 10px;
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .playback-speed-container {
     margin-left: 0;
     margin-right: 0;
+    grid-column: span 3;
+  }
+
+  .audio-button {
+    height: 55px;
+    border-radius: 15%;
+  }
+  footer {
+    visibility: hidden;
+  }
+
+  img {
+    margin: 0;
+  }
+}
+
+@keyframes stripes {
+  to {
+    background-size: 100% 100%;
   }
 }
